@@ -1,0 +1,21 @@
+
+/* OSFIT 5.9 — visible load highlights and gender-specific anatomy */
+.osfit-rich-anatomy{max-width:680px;margin-inline:auto}
+.osfit-rich-viewport{height:auto!important;min-height:0!important;max-width:420px;overflow:hidden!important;display:block!important;margin-inline:auto}
+.osfit-rich-viewport>div{width:100%;max-width:420px;margin-inline:auto}
+.osfit-rich-viewport svg{width:100%!important;height:auto!important;max-height:none!important;display:block}
+.osfit-rich-viewport svg path{stroke:none!important;transition:opacity .16s ease}
+.osfit-rich-viewport svg path:hover{stroke:none!important}
+.osfit-rich-anatomy .muscle-legend b{flex-shrink:0;max-width:70px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Native integration: keep old detailed anatomical artwork with responsive sizing */
+.lift-anatomy-restored{width:100%;max-width:680px;margin:auto}
+.lift-anatomy-restored .osfit-view-buttons{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.lift-anatomy-restored .osfit-view-buttons button{border:1px solid var(--border,#506075);border-radius:10px;padding:8px 14px;background:var(--surface,#20252c);color:var(--text,#eee);cursor:pointer}
+.lift-anatomy-restored .osfit-view-buttons button.active{background:#0a84ff;color:white;border-color:#0a84ff}
+.lift-anatomy-restored .osfit-anatomy-hint{font-size:12px;opacity:.7;text-align:center;margin:8px 0}
+.lift-anatomy-restored .muscle-legend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:12px}
+.lift-anatomy-restored .muscle-legend button{display:flex;justify-content:space-between;gap:8px;align-items:center;min-width:0;border:1px solid var(--border,#46525c);background:var(--surface,#222a32);color:var(--text,#fff);padding:10px;border-radius:10px;text-align:left}
+.lift-anatomy-restored .muscle-legend button.active{border-color:#0a84ff;background:rgba(10,132,255,.18)}
+.lift-anatomy-restored .muscle-caption{text-align:center;margin-top:10px}
+@media(max-width:420px){.lift-anatomy-restored .muscle-legend{grid-template-columns:1fr 1fr}.lift-anatomy-restored .muscle-legend button{font-size:12px;padding:9px 6px}}

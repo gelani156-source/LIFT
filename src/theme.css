@@ -1,3 +1,6 @@
+/* Алиасы переменных: Динамика и часть компонентов используют --surface/--text/..., которых раньше не существовало (в светлой теме получались тёмные плитки). */
+:root,:root[data-theme="dark"],:root[data-theme="light"]{--surface:var(--ios-panel);--surface-2:var(--ios-secondary);--surface-secondary:var(--ios-secondary);--text:var(--ios-text);--muted:var(--ios-muted);--border:var(--ios-line);--accent:var(--ios-accent)}
+:root,body{background:var(--ios-bg);color:var(--ios-text)}
 /* OSFIT iOS-inspired appearance. Neutral interface accents; muscle intensity colors stay semantic. */
 :root{color-scheme:dark;--ios-bg:#000;--ios-panel:#1c1c1e;--ios-secondary:#2c2c2e;--ios-text:#f5f5f7;--ios-muted:#98989d;--ios-line:#38383a;--ios-accent:#0a84ff}
 :root[data-theme="light"]{color-scheme:light;--ios-bg:#f2f2f7;--ios-panel:#fff;--ios-secondary:#e5e5ea;--ios-text:#1c1c1e;--ios-muted:#6d6d72;--ios-line:#d1d1d6;--ios-accent:#007aff}
@@ -68,3 +71,22 @@ body{transition:background-color .2s,color .2s}
 .osfit-mini-open{border:0;background:none;color:var(--ios-accent,#0a84ff);font-weight:600;padding:12px 0 2px;width:100%;text-align:center}
 .osfit-mini-footnote{font-size:10px;color:var(--ios-muted,#98989d);margin:10px 0 0}
 .osfit-mini-compact .osfit-mini-list{max-height:290px;overflow-y:auto}
+
+/* LIFT fixes */
+.lift-tabs button,.lift-periods button{color:var(--ios-text)}
+.lift-tabs .active,.lift-periods .active,.lift-metrics .active{color:#fff}
+.lift-metrics button{flex:0 0 auto!important}
+.lift-chart svg{color:var(--ios-text)}
+.lift-chart svg circle{stroke:var(--ios-panel)}
+.lift-point-chooser button{min-width:8px}
+.set-row .check-wrap{min-width:44px;min-height:44px}
+@media(pointer:coarse){
+  .set-extras input,.set-extras select,.set-row input,.input,textarea{font-size:16px!important}
+  .set-extras{grid-template-columns:1fr 1fr!important}
+  .row-remove{min-width:28px;min-height:44px}
+}
+@media(max-width:450px){.lift-point-chooser button{height:10px;width:10px}}
+/* iOS PWA (status-bar black-translucent + viewport-fit=cover): отступы под вырез/статус-бар */
+.header{height:calc(76px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top)}
+.toast{top:calc(85px + env(safe-area-inset-top))}
+.app{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}

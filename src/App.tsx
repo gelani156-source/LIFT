@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {ThemeToggle} from './ThemeToggle'
 import WorkoutMiniWidget from './WorkoutMiniWidget'
 import Dynamics from './Dynamics'
+import MuscleMap from './AnatomyMuscleMap'
+import {store} from './storage'
 import {muscleLoad,exerciseMuscleLoad} from './MuscleMap'
-import type {Muscle} from './MuscleMap'
 import {groups, groupFor, suggestions, serializeProgram, readProgramFile, getExerciseAlternative, weeklyMuscleSets, bodyPartPrompt} from './smart'
 
 import {convertIronlog} from './ironlog'
@@ -12,11 +13,11 @@ import {
   Check, Download, Upload, Settings, Save, Play, Copy, PenLine, ArrowLeft, Search, Activity
 } from 'lucide-react'
 import {
-  loadSnapshot, saveProgram, deleteProgram, saveWorkout,
+  cleanExercises, loadSnapshot, saveProgram, deleteProgram, saveWorkout,
   deleteWorkout, importBackup, exportBackup, allSchedule, saveSchedule, deleteSchedule, getProfile, saveProfile, saveMeasurement, deleteMeasurement
 } from './db'
 import {
-  blankSet, cloneLines, estimate1RM, exerciseCatalog, uid, volumeOf,
+  blankSet, cloneLines, estimate1RM, exerciseCatalog, isWorkSet, localDay, uid, volumeOf,
   type Program, type Workout, type ExerciseLine, type SetLine, type Schedule, type Profile, type Measurement
 } from './model'
 
@@ -80,38 +81,6 @@ const PLAN_TEMPLATES: {title:string,desc:string,days:{name:string,items:[string,
 ];
 const toLines=(items:[string,number,number][]):ExerciseLine[]=>items.map(([name,n,reps])=>({id:uid(),name,sets:Array.from({length:n},()=>({...blankSet(),reps}))}));
 
-// Fixed SVG layer mapping: posterior calves are highlighted only on the back.
-// Female and male figures use different shoulder/waist/hip proportions, not merely scaling.
-function MuscleMap({loads,sex='male'}:{loads:Record<Muscle,number>,sex?:'male'|'female'}){
- const [side,setSide]=useState<'front'|'back'>('front');const [selected,setSelected]=useState<Muscle|null>(null)
- const female=sex==='female';const max=Math.max(1,...Object.values(loads));
- const basePath=female?'M87 74 Q77 79 70 91 Q64 105 73 128 L82 153 Q83 181 74 207 Q67 225 72 246 Q100 262 128 246 Q133 225 126 207 Q117 181 118 153 L127 128 Q136 105 130 91 Q123 79 113 74Z':'M83 74 Q65 77 59 94 L72 128 76 168 80 209 Q69 225 74 242 L126 242 Q131 225 120 209 L124 168 128 128 141 94 Q135 77 117 74Z';
- const parts:{id:Muscle,side:'front'|'back'|'both',d:string}[]=[
- {id:'shoulders',side:'both',d:'M70 87 Q53 91 50 117 L65 130 79 103Z M130 87 Q147 91 150 117 L135 130 121 103Z'},
- {id:'chest',side:'front',d:'M78 105 Q92 95 98 106 L98 137 73 130Z M122 105 Q108 95 102 106 L102 137 127 130Z'},
- {id:'forearms',side:'both',d:'M45 173 L57 177 46 207 35 207Z M155 173 L143 177 154 207 165 207Z'},
- {id:'biceps',side:'front',d:'M53 127 L66 133 59 166 48 164Z M147 127 L134 133 141 166 152 164Z'},
- {id:'triceps',side:'back',d:'M50 120 L65 130 59 171 46 165Z M150 120 L135 130 141 171 154 165Z'},
- {id:'abs',side:'front',d:'M84 147 L116 147 115 200 Q100 207 85 200Z'},
- {id:'traps',side:'back',d:'M83 79 L100 87 117 79 130 107 109 122 100 113 91 122 70 107Z'},
- {id:'back',side:'back',d:'M73 115 L97 130 97 191 81 204 72 163Z M127 115 L103 130 103 191 119 204 128 163Z'},
- {id:'glutes',side:'back',d:'M76 213 Q87 207 99 219 L97 246 Q82 251 74 232Z M124 213 Q113 207 101 219 L103 246 Q118 251 126 232Z'},
- {id:'quads',side:'front',d:'M76 245 L97 250 96 312 83 323 77 281Z M124 245 L103 250 104 312 117 323 123 281Z'},
- {id:'hamstrings',side:'back',d:'M76 247 L97 252 94 317 81 324 77 284Z M124 247 L103 252 106 317 119 324 123 284Z'},
- {id:'calves',side:'back',d:'M81 337 Q93 329 97 344 L92 385 Q87 395 81 380Z M119 337 Q107 329 103 344 L108 385 Q113 395 119 380Z'}
- ];
- const names:Record<Muscle,string>={chest:'Грудь',shoulders:'Дельты',biceps:'Бицепс',forearms:'Предплечья',triceps:'Трицепс',abs:'Пресс',back:'Спина',traps:'Трапеции',glutes:'Ягодицы',quads:'Квадрицепсы',hamstrings:'Задняя поверхность бедра',calves:'Икры'};
- const all=Object.keys(names) as Muscle[];
- return <div className="muscle-layout"><div className="osfit-view-buttons"><button className={side==='front'?'active':''} onClick={()=>setSide('front')}>Спереди</button><button className={side==='back'?'active':''} onClick={()=>setSide('back')}>Сзади</button></div>
- <svg className="osfit-sex-svg" viewBox="0 0 200 440" role="img" aria-label={female?'Женская анатомическая модель':'Мужская анатомическая модель'}>
- <defs><linearGradient id="osfitFigure" x1="0" y1="0" x2="1" y2="1"><stop stopColor="#344850"/><stop offset="1" stopColor="#17252c"/></linearGradient></defs>
- <g fill="url(#osfitFigure)" stroke="#536871" strokeWidth="1.5" strokeLinejoin="round"><path d="M82 49 Q74 35 78 21 Q83 7 100 7 Q117 7 122 21 Q126 35 118 49 Q113 61 106 66 L106 76 94 76 94 66 Q87 61 82 49Z"/><path d={basePath}/><path d={female?'M70 92 Q55 87 50 108 L39 163 30 205 32 223 43 213 54 181 68 130Z':'M59 92 Q48 88 45 108 L38 163 29 204 31 223 43 213 54 181 71 131Z'}/><path d={female?'M130 92 Q145 87 150 108 L161 163 170 205 168 223 157 213 146 181 132 130Z':'M141 92 Q152 88 155 108 L162 163 171 204 169 223 157 213 146 181 129 131Z'}/><path d={female?'M73 240 Q68 263 75 312 L80 339 77 393 81 431 93 431 100 346 98 261Z':'M75 239 Q71 261 78 312 L82 339 78 393 81 431 94 431 100 346 98 260Z'}/><path d={female?'M127 240 Q132 263 125 312 L120 339 123 393 119 431 107 431 100 346 102 261Z':'M125 239 Q129 261 122 312 L118 339 122 393 119 431 106 431 100 346 102 260Z'}/></g>
- <g transform={female?'translate(3 0) scale(.97 1)':undefined}>{parts.filter(z=>z.side===side||z.side==='both').map(z=>{const v=loads[z.id]||0;return <path key={z.id} role="button" tabIndex={0} aria-label={`${names[z.id]}, нагрузка ${v}`} onClick={()=>setSelected(z.id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' ')setSelected(z.id)}} d={z.d} fill={selected===z.id?'rgba(10,132,255,.92)':v>0?`rgba(10,132,255,${.28+.62*v/max})`:'#344b51'} stroke={selected===z.id?'#ffffff':'#648186'} strokeWidth={selected===z.id?2.5:1} style={{cursor:'pointer'}}><title>{names[z.id]}</title></path>})}</g></svg>
- <p className="muted small" style={{textAlign:'center'}}>{selected?`${names[selected]}: ${(loads[selected]||0).toFixed(1)} условных подходов`:female?'Женская модель: более узкие плечи и выраженная линия таза':'Мужская модель: более широкие плечи и торс'}</p>
- <div className="muscle-legend">{all.map(k=><button key={k} className={selected===k?'active':''} aria-pressed={selected===k} onClick={()=>{setSelected(k);setSide(['back','traps','glutes','hamstrings','calves'].includes(k)?'back':'front')}}><span>{names[k]}</span><b>{(loads[k]||0).toFixed(1)}</b></button>)}</div>
- <p className="muted small">Схематическая карта тренировочной нагрузки. Передняя поверхность голени не обозначается как икроножная мышца.</p></div>
-}
-
 // Compact local ZIP/XLSX reader. Only simple .xlsx worksheets; formulas are read via cached values.
 async function xlsxAsRows(file:File):Promise<string[][]>{
  const bytes=new Uint8Array(await file.arrayBuffer()),view=new DataView(bytes.buffer);let end=-1;
@@ -129,6 +98,9 @@ function fromPortableJson(data:unknown):ExerciseLine[]{
  if(!Array.isArray(candidate))throw new Error('Нет списка exercises/rows в JSON');return candidate.map((raw:unknown)=>{const x=raw as Record<string,unknown>;const name=String(x.name||x.exercise||'').trim();const sets=Array.isArray(x.sets)?x.sets.map((v:unknown)=>{const a=v as Record<string,unknown>;return {...blankSet(),weight:Number(a.weight||0),reps:Number(a.reps||0),done:a.done===true||a.completed===true}}):[];if(!name||!sets.length||sets.some(s=>!Number.isFinite(s.weight)||!Number.isFinite(s.reps)||s.weight<0||s.reps<0))throw new Error('Ошибочный подход в импортируемом JSON');return {id:uid(),name,sets}})
 }
 
+// Черновик из localStorage может быть повреждён (старая версия, ручная правка): чистим структуру, чтобы не уронить интерфейс.
+type Draft={name:string,rows:ExerciseLine[],activeProgramId:string|null,editingWorkoutId:string|null}
+const readDraft=():Draft|null=>{try{const raw=JSON.parse(store.get('osfit-session-draft')||'null') as Record<string,unknown>|null;if(!raw||typeof raw!=='object'||!Array.isArray(raw.rows))return null;return {name:typeof raw.name==='string'?raw.name:'Тренировка',rows:cleanExercises(raw.rows),activeProgramId:typeof raw.activeProgramId==='string'?raw.activeProgramId:null,editingWorkoutId:typeof raw.editingWorkoutId==='string'?raw.editingWorkoutId:null}}catch{return null}}
 type Tab = 'train' | 'history' | 'progress' | 'calendar' | 'body' | 'muscles'
 type Editor = 'program' | 'session' | null
 const formatDate = (s: string) => new Date(s).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -208,8 +180,8 @@ export default function App() {
   const [programs, setPrograms] = useState<Program[]>([])
   const [workouts, setWorkouts] = useState<Workout[]>([])
   const [measurements, setMeasurements] = useState<Measurement[]>([])
-  const [bodyForm, setBodyForm] = useState({date:new Date().toISOString().slice(0,10),weight:'',waist:'',chest:'',arm:'',thigh:'',hips:'',neck:'',note:''})
-  const [calendarMonth, setCalendarMonth] = useState(new Date().toISOString().slice(0,7))
+  const [bodyForm, setBodyForm] = useState({date:localDay(),weight:'',waist:'',chest:'',arm:'',thigh:'',hips:'',neck:'',note:''})
+  const [calendarMonth, setCalendarMonth] = useState(localDay().slice(0,7))
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -224,15 +196,15 @@ export default function App() {
   const [picker, setPicker] = useState(false)
   const [query, setQuery] = useState('')
   const [groupFilter,setGroupFilter]=useState('Все')
-  const [viewMode,setViewMode]=useState<'simple'|'compact'|'expanded'>(()=>{const v=localStorage.getItem('osfit-view-mode');return v==='simple'||v==='expanded'||v==='compact'?v:localStorage.getItem('osfit-compact')==='false'?'expanded':'compact'})
+  const [viewMode,setViewMode]=useState<'simple'|'compact'|'expanded'>(()=>{const v=store.get('osfit-view-mode');return v==='simple'||v==='expanded'||v==='compact'?v:store.get('osfit-compact')==='false'?'expanded':'compact'})
   const compact=viewMode!=='expanded'
-  const changeViewMode=(v:'simple'|'compact'|'expanded')=>{setViewMode(v);localStorage.setItem('osfit-view-mode',v)}
+  const changeViewMode=(v:'simple'|'compact'|'expanded')=>{setViewMode(v);store.set('osfit-view-mode',v)}
   const [expandedRows,setExpandedRows]=useState<string[]>([])
   const [extrasRows,setExtrasRows]=useState<string[]>([])
   const [undoRows,setUndoRows]=useState<ExerciseLine[][]>([])
   type GoalKind = 'weight'|'reps'|'estimated'
   type StrengthGoal = {id:string,exercise:string,kind:GoalKind,target:number,minimumReps:number,referenceWeight:number,createdAt:string,completedAt?:string,achieved?:number}
-  const [goals,setGoals]=useState<StrengthGoal[]>(()=>{try{const raw=JSON.parse(localStorage.getItem('osfit-strength-goals')||'null');if(Array.isArray(raw))return raw;const old=Number(localStorage.getItem('osfit-goal-weight')||0);return old>0?[{id:uid(),exercise:localStorage.getItem('osfit-goal-name')||'Жим штанги лёжа',kind:'estimated',target:old,minimumReps:1,referenceWeight:0,createdAt:new Date().toISOString()}]:[]}catch{return []}})
+  const [goals,setGoals]=useState<StrengthGoal[]>(()=>{try{const raw=JSON.parse(store.get('osfit-strength-goals')||'null');if(Array.isArray(raw))return raw;const old=Number(store.get('osfit-goal-weight')||0);return old>0?[{id:uid(),exercise:store.get('osfit-goal-name')||'Жим штанги лёжа',kind:'estimated',target:old,minimumReps:1,referenceWeight:0,createdAt:new Date().toISOString()}]:[]}catch{return []}})
   const [goalExercise,setGoalExercise]=useState('')
   const [goalKind,setGoalKind]=useState<GoalKind>('weight')
   const [goalTarget,setGoalTarget]=useState('')
@@ -241,7 +213,7 @@ export default function App() {
   const [goalArchive,setGoalArchive]=useState(false)
   const [showGoalForm,setShowGoalForm]=useState(false)
   const [goalNotice,setGoalNotice]=useState<string[]>([])
-  useEffect(()=>{localStorage.setItem('osfit-strength-goals',JSON.stringify(goals))},[goals])
+  useEffect(()=>{store.set('osfit-strength-goals',JSON.stringify(goals))},[goals])
   const goalScore=(g:StrengthGoal,history:Workout[])=>{
     let maximum=0
     for(const w of history)for(const e of w.exercises){if(e.name.trim().toLocaleLowerCase('ru')!==g.exercise.trim().toLocaleLowerCase('ru'))continue
@@ -260,7 +232,7 @@ export default function App() {
   }
   useEffect(()=>{if(!workouts.length)return;setGoals(old=>{const newly:string[]=[];const next=old.map(g=>{if(g.completedAt)return g;const value=goalScore(g,workouts);if(value>=g.target){newly.push(g.exercise);return {...g,completedAt:new Date().toISOString(),achieved:value}}return g});if(newly.length)setGoalNotice(newly);return newly.length?next:old})},[workouts])
   const [comparison,setComparison]=useState<[string,string]>(['',''])
-  const [backupAt,setBackupAt]=useState(()=>localStorage.getItem('osfit-last-backup')||'')
+  const [backupAt,setBackupAt]=useState(()=>store.get('osfit-last-backup')||'')
 
   const [settings, setSettings] = useState(false)
   const [detail, setDetail] = useState<Workout | null>(null)
@@ -270,30 +242,30 @@ export default function App() {
   const [planName, setPlanName] = useState('Импорт из IRONLOG')
   const [profile,setProfile]=useState<Profile>(getProfile)
   const [schedule,setSchedule]=useState<Schedule[]>([])
-  const [plannedDate,setPlannedDate]=useState(new Date().toISOString().slice(0,10))
+  const [plannedDate,setPlannedDate]=useState(localDay())
   const [plannedProgram,setPlannedProgram]=useState('')
   const [repeatDays,setRepeatDays]=useState(0)
-  const [musclePeriod,setMusclePeriod]=useState(()=>Number(localStorage.getItem('osfit-muscle-period'))||7)
+  const [musclePeriod,setMusclePeriod]=useState(()=>Number(store.get('osfit-muscle-period'))||7)
   const [draft,setDraft]=useState(false)
   const [showTemplates,setShowTemplates]=useState(false)
-  const [restInput,setRestInput]=useState(()=>String(Number(localStorage.getItem('osfit-rest')||90)))
+  const [restInput,setRestInput]=useState(()=>String(Number(store.get('osfit-rest')||90)))
   const [weightInput,setWeightInput]=useState(()=>String(getProfile().weightStep))
   const [portableInfo,setPortableInfo]=useState('')
   const portableRef=useRef<HTMLInputElement>(null)
 
-  const [restDuration,setRestDuration]=useState(()=>Number(localStorage.getItem('osfit-rest')||90))
-  const [restUntil,setRestUntil]=useState(()=>Number(localStorage.getItem('osfit-rest-until')||0))
+  const [restDuration,setRestDuration]=useState(()=>Number(store.get('osfit-rest')||90))
+  const [restUntil,setRestUntil]=useState(()=>Number(store.get('osfit-rest-until')||0))
   const [clock,setClock]=useState(Date.now())
   const [editingWorkoutId,setEditingWorkoutId]=useState<string|null>(null)
   const [ironlogFile,setIronlogFile]=useState<File|null>(null)
   const [ironlogPreview,setIronlogPreview]=useState<{programs:Program[],workouts:Workout[],measurements:Measurement[],warnings:string[]}|null>(null)
   useEffect(()=>{if(!restUntil)return;const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[restUntil])
   const secondsLeft=Math.max(0,Math.ceil((restUntil-clock)/1000))
-  useEffect(()=>{if(editor==='session'&&rows.length){localStorage.setItem('osfit-session-draft',JSON.stringify({name,rows,activeProgramId,editingWorkoutId}))}},[editor,rows,name,activeProgramId,editingWorkoutId])
+  useEffect(()=>{if(editor==='session'&&rows.length){store.set('osfit-session-draft',JSON.stringify({name,rows,activeProgramId,editingWorkoutId}))}},[editor,rows,name,activeProgramId,editingWorkoutId])
   const saveSessionDraft = () => {
     if(editor!=='session') return
     try {
-      localStorage.setItem('osfit-session-draft', JSON.stringify({name,rows,activeProgramId,editingWorkoutId,savedAt:new Date().toISOString()}))
+      store.set('osfit-session-draft', JSON.stringify({name,rows,activeProgramId,editingWorkoutId,savedAt:new Date().toISOString()}))
       setDraft(true)
       setDirty(false)
       setEditor(null)
@@ -301,17 +273,17 @@ export default function App() {
       tell('Тренировка сохранена. Продолжить можно на главной.')
     } catch (e) { setError('Не удалось сохранить черновик: '+String(e)) }
   }
-  const restoreDraft=()=>{try{const d=JSON.parse(localStorage.getItem('osfit-session-draft')||'null');if(!d||!Array.isArray(d.rows))return;setName(d.name);setRows(d.rows);setActiveProgramId(d.activeProgramId??null);setEditingWorkoutId(d.editingWorkoutId??null);setEditor('session');setDraft(false)}catch{setError('Черновик повреждён')}}
+  const restoreDraft=()=>{const d=readDraft();if(!d){setError('Черновик повреждён или отсутствует');store.remove('osfit-session-draft');setDraft(false);return}setName(d.name);setRows(d.rows);setActiveProgramId(d.activeProgramId);setEditingWorkoutId(d.editingWorkoutId);setExpandedRows([]);setUndoRows([]);setEditor('session');setDraft(false)}
   const storeProfile=(patch:Partial<Profile>)=>{setProfile(old=>{const p={...old,...patch};saveProfile(p);return p})}
   const addPlanned=async()=>{if(!plannedProgram)return setError('Выберите программу');try{await saveSchedule({id:uid(),date:plannedDate,programId:plannedProgram,repeatDays:repeatDays||undefined});setSchedule(await allSchedule());tell('Тренировка запланирована')}catch(e){setError(String(e))}}
   const removePlanned=async(id:string)=>{await deleteSchedule(id);setSchedule(await allSchedule())}
   const upcoming=(day:string)=>schedule.filter(a=>{const delta=Math.round((Date.parse(day+'T12:00:00')-Date.parse(a.date+'T12:00:00'))/86400000);return delta>=0&&(delta===0||!!a.repeatDays&&delta%a.repeatDays===0)})
 
-  useEffect(()=>{setDraft(!!localStorage.getItem('osfit-session-draft'))},[])
+  useEffect(()=>{setDraft(!!store.get('osfit-session-draft'))},[])
   const createTemplate=async(index:number)=>{try{const tmpl=PLAN_TEMPLATES[index];for(const day of tmpl.days)await saveProgram({id:uid(),name:day.name,createdAt:new Date().toISOString(),exercises:toLines(day.items)});await load();setShowTemplates(false);tell(`Добавлено программ: ${tmpl.days.length}`)}catch(e){setError(String(e))}}
   const savePortable=()=>{if(editor!=='session'||!rows.length)return;const data={format:'osfit-active-session',version:1,name,exercises:rows,savedAt:new Date().toISOString()};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='osfit-active-session.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);tell('Файл текущей тренировки сохранён')}
   const importPortable=async(file:File)=>{try{const extension=file.name.split('.').pop()?.toLowerCase();let exercises:ExerciseLine[]=[];if(extension==='json')exercises=fromPortableJson(JSON.parse(await file.text()));else if(extension==='xlsx')exercises=tableToTraining(await xlsxAsRows(file));else if(extension==='csv'){const text=await file.text();const delim=text.split(/\r?\n/)[0].includes(';')?';':',';exercises=tableToTraining(text.split(/\r?\n/).map(x=>x.split(delim).map(v=>v.trim().replace(/^"|"$/g,''))))}else if(extension==='txt')exercises=parseTrainingText(await file.text()).exercises;else throw new Error('Поддерживаются TXT, JSON, CSV и XLSX');if(!exercises.length)throw new Error('Не найдено распознанных упражнений');if(!window.confirm(`Импортировать ${exercises.length} упражнений? Текущие несохранённые изменения будут заменены.`))return;setName(file.name.replace(/\.[^.]+$/,''));setRows(exercises);setActiveProgramId(null);setEditingWorkoutId(null);setEditor('session');setSettings(false);setTextImport(false);setShowTemplates(false);setDirty(true);setPortableInfo(`Импортировано ${exercises.length} упражнений. Проверьте выполненные подходы.`);tell('Тренировка загружена')}catch(e){setError(e instanceof Error?e.message:String(e))}}
-  const startRest=()=>{setClock(Date.now());const until=Date.now()+restDuration*1000;setRestUntil(until);localStorage.setItem('osfit-rest-until',String(until))}
+  const startRest=()=>{setClock(Date.now());const until=Date.now()+restDuration*1000;setRestUntil(until);store.set('osfit-rest-until',String(until))}
   const file = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
@@ -335,7 +307,7 @@ export default function App() {
   const abandon = () => {
     if (editor === 'session') {
       try {
-        localStorage.setItem('osfit-session-draft',JSON.stringify({name,rows,activeProgramId,editingWorkoutId,savedAt:new Date().toISOString()}))
+        store.set('osfit-session-draft',JSON.stringify({name,rows,activeProgramId,editingWorkoutId,savedAt:new Date().toISOString()}))
         setDraft(true)
         setDirty(false)
         setEditor(null)
@@ -359,7 +331,7 @@ export default function App() {
     setEditor('program'); setDirty(false)
   }
   const beginSession = (p: Program) => {
-    if (localStorage.getItem('osfit-session-draft') && !window.confirm('Есть сохранённая незавершённая тренировка. Начать новую вместо неё? Старая будет заменена.')) return
+    if (store.get('osfit-session-draft') && !window.confirm('Есть сохранённая незавершённая тренировка. Начать новую вместо неё? Старая будет заменена.')) return
     if (!abandon()) return
     setName(p.name); setRows(cloneLines(p.exercises));setExpandedRows([]);setUndoRows([])
     setActiveProgramId(p.id); setEditingWorkoutId(null); setEditor('session'); setDirty(false)
@@ -371,13 +343,13 @@ export default function App() {
   const changeSet = (i: number, j: number, patch: Partial<SetLine>) => {
     const line = rows[i]
     const before = line?.sets[j]
-    if (editor === 'session' && line && before && patch.done === true && !before.done) {
+    if (editor === 'session' && line && before && patch.done === true && !before.done && before.kind!=='warmup') {
       const updated = {...before, ...patch}
       const newValue = updated.weight > 0 && updated.reps > 0 ? estimate1RM(updated.weight, updated.reps) : 0
       const previousValues = [
         ...workouts.flatMap(w => w.exercises.filter(e => e.name.toLowerCase() === line.name.toLowerCase()).flatMap(e => e.sets)),
         ...rows.flatMap((r,ri) => r.name.toLowerCase() === line.name.toLowerCase() ? r.sets.filter((_,si) => ri !== i || si !== j) : [])
-      ].filter(s => s.done && s.weight > 0 && s.reps > 0).map(s => estimate1RM(s.weight,s.reps))
+      ].filter(s => isWorkSet(s) && s.weight > 0).map(s => estimate1RM(s.weight,s.reps))
       const previousBest = Math.max(0,...previousValues)
       if (newValue > previousBest + 0.001) {
         setPersonalRecord({exercise:line.name,weight:updated.weight,reps:updated.reps,estimated:newValue})
@@ -401,13 +373,13 @@ export default function App() {
         const original=workouts.find(w=>w.id===editingWorkoutId)
         const oldRecords = new Map<string,number>()
         for (const w of workouts.filter(w => w.id !== editingWorkoutId)) for (const e of w.exercises) for (const set of e.sets) {
-          if (!set.done || set.weight <= 0 || set.reps <= 0) continue
+          if (!isWorkSet(set) || set.weight <= 0) continue
           const key=e.name.toLowerCase()
           oldRecords.set(key,Math.max(oldRecords.get(key)??0,estimate1RM(set.weight,set.reps)))
         }
         const records: string[] = []
         for (const e of rows) {
-          const scored = e.sets.filter(s=>s.done && s.weight>0 && s.reps>0).map(s=>estimate1RM(s.weight,s.reps))
+          const scored = e.sets.filter(s=>isWorkSet(s) && s.weight>0).map(s=>estimate1RM(s.weight,s.reps))
           const score=Math.max(0,...scored)
           if(score>0 && score>(oldRecords.get(e.name.toLowerCase())??0)+0.001)records.push(e.name)
         }
@@ -416,7 +388,7 @@ export default function App() {
         setPersonalRecord(null)
         tell('Тренировка сохранена')
       }
-      await load(); if(editor==='session')localStorage.removeItem('osfit-session-draft'); setEditor(null); setEditingWorkoutId(null); setDirty(false);setRestUntil(0)
+      await load(); if(editor==='session')store.remove('osfit-session-draft'); setEditor(null); setEditingWorkoutId(null); setDirty(false);setRestUntil(0)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
   }
   const removeP = async (id: string) => {
@@ -429,13 +401,13 @@ export default function App() {
     try { await deleteWorkout(id); setDetail(null); await load() } catch (e) { setError(String(e)) }
   }
   const download = async () => {
-    setBackupAt(new Date().toISOString());localStorage.setItem('osfit-last-backup',new Date().toISOString())
     try {
       const data = await exportBackup()
       const url = URL.createObjectURL(new Blob([JSON.stringify({...data,strengthGoals:goals}, null, 2)], { type: 'application/json' }))
       const a = document.createElement('a'); a.href = url
-      a.download = `osfit-backup-${new Date().toISOString().slice(0, 10)}.json`
+      a.download = `osfit-backup-${localDay()}.json`
       a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      const stamp = new Date().toISOString(); setBackupAt(stamp); store.set('osfit-last-backup', stamp)
       tell('Архив подготовлен')
     } catch (e) { setError(String(e)) }
   }
@@ -477,7 +449,7 @@ export default function App() {
   const applyIronlog=async()=>{if(!ironlogPreview||!ironlogFile)return;try{if(!window.confirm(`Добавить ${ironlogPreview.workouts.length} тренировок и ${ironlogPreview.programs.length} программ? Существующие записи останутся.`))return;for(const p of ironlogPreview.programs)await saveProgram(p);for(const w of ironlogPreview.workouts)await saveWorkout(w);for(const m of ironlogPreview.measurements)await saveMeasurement(m);await load();setIronlogPreview(null);setIronlogFile(null);tell('Данные IRONLOG добавлены')}catch(e){setError(String(e))}}
   // The mini widget operates on the active workout or its locally saved draft.
   // Never reorder the source rows; the widget sorts only its presentation.
-  const miniDraft=(()=>{if(editor==='session')return {name,rows};try{const x=JSON.parse(localStorage.getItem('osfit-session-draft')||'null') as {name?:string,rows?:ExerciseLine[]}|null;return x&&Array.isArray(x.rows)?{name:x.name||'Тренировка',rows:x.rows}:null}catch{return null}})()
+  const miniDraft=(()=>{if(editor==='session')return {name,rows};return readDraft()})()
   const toggleMiniExercise=(id:string)=>{
     const update=(current:ExerciseLine[])=>current.map(e=>{
       if(e.id!==id||!e.sets.length)return e
@@ -489,7 +461,7 @@ export default function App() {
       setRows(update)
       setDirty(true)
     }else{
-      try{const raw=JSON.parse(localStorage.getItem('osfit-session-draft')||'null');if(!raw||!Array.isArray(raw.rows))return;raw.rows=update(raw.rows);localStorage.setItem('osfit-session-draft',JSON.stringify(raw));setDraft(true);setMiniRevision(n=>n+1)}catch{setError('Не удалось сохранить состояние мини-виджета')}
+      try{const raw=JSON.parse(store.get('osfit-session-draft')||'null');const d=readDraft();if(!raw||!d)return;raw.rows=update(d.rows);store.set('osfit-session-draft',JSON.stringify(raw));setDraft(true);setMiniRevision(n=>n+1)}catch{setError('Не удалось сохранить состояние мини-виджета')}
     }
   }
   const sortedRows=editor==='session'?[...rows.filter(r=>!r.sets.length||r.sets.some(s=>!s.done)),...rows.filter(r=>r.sets.length>0&&r.sets.every(s=>s.done))]:rows
@@ -501,10 +473,6 @@ export default function App() {
   const importSharedProgram=async(file:File)=>{try{const p=await readProgramFile(file);await saveProgram({...p,id:uid(),createdAt:new Date().toISOString()});await load();tell('Программа импортирована')}catch(e){setError(String(e))}}
   const doneCount = rows.reduce((n, r) => n + r.sets.filter(s => s.done).length, 0)
   const setCount = rows.reduce((n, r) => n + r.sets.length, 0)
-  const best = new Map<string, number>()
-  for (const w of workouts) for (const r of w.exercises) for (const s of r.sets) {
-    if (s.done) best.set(r.name, Math.max(best.get(r.name) ?? 0, estimate1RM(s.weight, s.reps)))
-  }
 
   return <div className="app">
     <header className="header">
@@ -555,7 +523,7 @@ export default function App() {
         <label className="field-label">Шаг прибавки веса (кг)</label><input className="input" type="number" step="any" min="0.25" value={weightInput} onChange={e=>setWeightInput(e.target.value)} onBlur={()=>{const v=Number(weightInput.replace(',','.'));if(Number.isFinite(v)&&v>=0.25&&v<=100)storeProfile({weightStep:v});else setWeightInput(String(profile.weightStep))}}/>
         <label className="field-label"><input type="checkbox" checked={profile.autoProgress} onChange={e=>storeProfile({autoProgress:e.target.checked})}/> Включить рекомендации прогрессии</label>
         <label className="field-label">Отдых между подходами (секунды)</label>
-        <input className="input" type="number" min="0" max="3600" step="1" value={restInput} onChange={e=>setRestInput(e.target.value)} onBlur={()=>{const v=Number(restInput);if(Number.isInteger(v)&&v>=0&&v<=3600){setRestDuration(v);localStorage.setItem('osfit-rest',String(v))}else setRestInput(String(restDuration))}}/>
+        <input className="input" type="number" min="0" max="3600" step="1" value={restInput} onChange={e=>setRestInput(e.target.value)} onBlur={()=>{const v=Number(restInput);if(Number.isInteger(v)&&v>=0&&v<=3600){setRestDuration(v);store.set('osfit-rest',String(v))}else setRestInput(String(restDuration))}}/>
         <label className="field-label">Импорт продолжения тренировки (TXT / JSON / CSV / XLSX)</label><input className="input" type="file" accept=".txt,.json,.csv,.xlsx" onChange={e=>{const f=e.target.files?.[0];if(f)void importPortable(f);e.target.value=''}}/>
         <p className="osfit-helper">CSV/XLSX: столбцы «упражнение, вес, повторы, выполнено». JSON: массив exercises с sets. Перед импортом делается предпросмотр-подтверждение.</p>
         <label className="field-label">Перенос JSON из Scriptable IRONLOG</label>
@@ -583,7 +551,7 @@ export default function App() {
         <input className="input title-input" value={name} onChange={e => { setName(e.target.value); setDirty(true) }} placeholder="Название"/>
         {editor === 'session' && <><button className="btn secondary full" onClick={savePortable}><Download size={17}/> Экспортировать текущую тренировку</button>{portableInfo&&<p className="osfit-helper">{portableInfo}</p>}</>}
         {editor === 'session' && <div className="card"><div className="exercise-head"><strong>Таймер отдыха</strong><button className="btn secondary compact" onClick={startRest}>Старт {restDuration} с</button></div><strong>{secondsLeft>0?`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,'0')}`:'Готов'}</strong><button className="tiny-icon" onClick={()=>setRestUntil(0)}>Сброс</button></div>}
-        {editor === 'session' && <div className="osfit-inline-actions"><button onClick={undo} disabled={!undoRows.length}>↶ Отменить действие</button><div className="osfit-segmented" role="group" aria-label="Вид тренировки">{(['simple','compact','expanded'] as const).map(v=><button key={v} className={viewMode===v?'active':''} aria-pressed={viewMode===v} onClick={()=>changeViewMode(v)}>{v==='simple'?'Простой':v==='compact'?'Компактный':'Полный'}</button>)}</div></div>}
+        {editor === 'session' && <div className="osfit-inline-actions"><button onClick={undo} disabled={!undoRows.length}>↶ Отменить действие</button><div className="osfit-segmented" role="group" aria-label="Вид тренировки">{(['simple','compact','expanded'] as const).map(v=><button key={v} className={viewMode===v?'active':''} aria-pressed={viewMode===v} onClick={()=>changeViewMode(v)}>{v==='simple'?'Простой':v==='compact'?'Компактный':'Расширенный'}</button>)}</div></div>}
         {editor === 'session' && <div className="session-stats"><span><b>{doneCount}</b> / {setCount} подходов</span><span><b>{fmt(volumeOf(rows))}</b> кг тоннаж</span></div>}
         {sortedRows.map((r) => {const i=rows.findIndex(v=>v.id===r.id);const finished=editor==='session'&&r.sets.length>0&&r.sets.every(v=>v.done);const collapsed=finished|| (viewMode==='simple'? !expandedRows.includes(r.id):expandedRows.includes(r.id));return <article className={'exercise-card'+(finished?' osfit-completed':'')} key={r.id}>
           <div className="exercise-head"><div><span className="exercise-number">{String(i + 1).padStart(2, '0')}</span><strong>{r.name}</strong></div><button className="tiny-icon" title="Удалить упражнение" onClick={() => { setRows(old => old.filter((_, k) => k !== i)); setDirty(true) }}><Trash2 size={17}/></button></div>
@@ -594,8 +562,8 @@ export default function App() {
           <div className="set-headers"><span>Подход</span><span>Вес, кг</span><span>Повторы</span><span>{editor === 'session' ? 'Готово' : 'План'}</span></div>
           {r.sets.map((s, j) => <div className="set-row" key={s.id}>
             <span className="set-index">{j + 1}</span>
-            <input aria-label={`Вес подхода ${j + 1}`} type="number" min="0" max="9999" step="0.5" inputMode="decimal" value={s.weight} onChange={e => changeSet(i, j, { weight: Math.max(0, Number(e.target.value) || 0) })}/>
-            <input aria-label={`Повторы подхода ${j + 1}`} type="number" min="0" max="999" inputMode="numeric" value={s.reps} onChange={e => changeSet(i, j, { reps: Math.max(0, Number(e.target.value) || 0) })}/>
+            <input aria-label={`Вес подхода ${j + 1}`} type="number" min="0" max="9999" step="0.5" inputMode="decimal" placeholder="0" value={s.weight||''} onChange={e => changeSet(i, j, { weight: Math.max(0, Number(e.target.value) || 0) })}/>
+            <input aria-label={`Повторы подхода ${j + 1}`} type="number" min="0" max="999" inputMode="numeric" placeholder="0" value={s.reps||''} onChange={e => changeSet(i, j, { reps: Math.max(0, Number(e.target.value) || 0) })}/>
             {editor === 'session' ? <label className="check-wrap"><input aria-label={`Выполнен подход ${j + 1}`} type="checkbox" checked={s.done} onChange={e => changeSet(i, j, { done: e.target.checked })}/><span><Check size={17}/></span></label> : <span className="muted center">—</span>}
             <div className="set-extras" style={{display:compact&&!extrasRows.includes(r.id)?'none':undefined}}><select aria-label="Тип подхода" value={s.kind||'work'} onChange={e=>changeSet(i,j,{kind:e.target.value as SetLine['kind']})}><option value="work">Рабочий</option><option value="warmup">Разминка</option><option value="drop">Дроп-сет</option></select><input aria-label="RPE" title="RPE" type="number" placeholder="RPE" min="1" max="10" step="0.5" value={s.rpe??''} onChange={e=>changeSet(i,j,{rpe:e.target.value?Number(e.target.value):undefined})}/><input aria-label="RIR" title="RIR" type="number" placeholder="RIR" min="0" max="10" value={s.rir??''} onChange={e=>changeSet(i,j,{rir:e.target.value?Number(e.target.value):e.target.value==='0'?0:undefined})}/><input aria-label="Темп" placeholder="Темп 3-1-1-0" value={s.tempo||''} onChange={e=>changeSet(i,j,{tempo:e.target.value})}/></div>
             <button title="Удалить подход" className="row-remove" onClick={() => changeRow(i, x => ({ ...x, sets: x.sets.filter((_, k) => k !== j) }))}>×</button>
@@ -644,12 +612,12 @@ export default function App() {
         {Array.from({length:(new Date(Number(calendarMonth.slice(0,4)),Number(calendarMonth.slice(5))-1,1).getDay()+6)%7},(_,i)=><span key={'empty'+i}/>)}
         {Array.from({length:new Date(Number(calendarMonth.slice(0,4)),Number(calendarMonth.slice(5)),0).getDate()},(_,i)=>{
           const date=`${calendarMonth}-${String(i+1).padStart(2,'0')}`
-          const count=workouts.filter(w=>w.date.slice(0,10)===date).length;const scheduled=upcoming(date).length
+          const count=workouts.filter(w=>localDay(w.date)===date).length;const scheduled=upcoming(date).length
           return <button key={date} className={count?'trained':scheduled?'planned':''} onClick={()=>{if(count){setTab('history');tell(`Тренировок за ${date}: ${count}`)}}}>{i+1}{count>0?<small>●</small>:scheduled>0?<small>○</small>:null}</button>
         })}</div>
         <h2 className="section-title">План занятий</h2>{schedule.map(a=><div className="card" key={a.id}><div className="exercise-head"><strong>{a.date} · {programs.find(p=>p.id===a.programId)?.name||'Удалённая программа'}</strong><button className="tiny-icon" onClick={()=>void removePlanned(a.id)}><Trash2 size={17}/></button></div><p className="muted small">{a.repeatDays?`Повтор каждые ${a.repeatDays} дней`:'Однократно'}</p><button className="btn secondary" onClick={()=>{const p=programs.find(p=>p.id===a.programId);if(p)beginSession(p)}}>Начать</button></div>)}
         <h2 className="section-title">Тренировки месяца</h2>
-        {workouts.filter(w=>w.date.startsWith(calendarMonth)).length===0?<p className="muted">Нет записей за месяц</p>:workouts.filter(w=>w.date.startsWith(calendarMonth)).map(w=><button className="history-card" key={w.id} onClick={()=>{setTab('history');setDetail(w)}}>{formatDate(w.date)} · {w.name}</button>)}
+        {workouts.filter(w=>localDay(w.date).startsWith(calendarMonth)).length===0?<p className="muted">Нет записей за месяц</p>:workouts.filter(w=>localDay(w.date).startsWith(calendarMonth)).map(w=><button className="history-card" key={w.id} onClick={()=>{setTab('history');setDetail(w)}}>{formatDate(w.date)} · {w.name}</button>)}
       </section> : tab === 'body' ? <section>
         <p className="eyebrow">АНТРОПОМЕТРИЯ</p><h1>Замеры тела</h1>
         <div className="card"><label className="field-label">Дата</label><input className="input" type="date" value={bodyForm.date} onChange={e=>setBodyForm(x=>({...x,date:e.target.value}))}/>
@@ -660,12 +628,12 @@ export default function App() {
         {!measurements.length?<p className="muted">Замеров пока нет</p>:measurements.map(m=><div className="card" key={m.id}><div className="exercise-head"><strong>{m.date}</strong><button className="tiny-icon" onClick={()=>void removeBody(m.id)}><Trash2 size={17}/></button></div><p className="muted small">{([['weight','Вес','кг'],['waist','Талия','см'],['chest','Грудь','см'],['arm','Рука','см'],['thigh','Бедро','см'],['hips','Таз','см'],['neck','Шея','см']] as const).filter(([k])=>m[k]!==undefined).map(([k,n,u])=>`${n}: ${m[k]} ${u}`).join(' · ')}</p>{m.note&&<p>{m.note}</p>}</div>)}
       </section> : tab === 'muscles' ? <section>
         <p className="eyebrow">АНАТОМИЯ НАГРУЗКИ</p><h1>Атлет и мышцы</h1>
-        <div className="osfit-period-pills" role="group" aria-label="Период подсветки мышц">{[7,30,90,365].map(n=><button type="button" aria-pressed={musclePeriod===n} className={musclePeriod===n?'selected':''} key={n} onClick={()=>{setMusclePeriod(n);localStorage.setItem('osfit-muscle-period',String(n))}}>{n===7?'7 дней':n===30?'30 дней':n===90?'90 дней':'1 год'}</button>)}</div>
+        <div className="osfit-period-pills" role="group" aria-label="Период подсветки мышц">{[7,30,90,365].map(n=><button type="button" aria-pressed={musclePeriod===n} className={musclePeriod===n?'selected':''} key={n} onClick={()=>{setMusclePeriod(n);store.set('osfit-muscle-period',String(n))}}>{n===7?'7 дней':n===30?'30 дней':n===90?'90 дней':'1 год'}</button>)}</div>
         <p className="muted small">Нагрузка за {musclePeriod} дней · {workouts.filter(w=>{const t=Date.parse(w.date);return Number.isFinite(t)&&t>=Date.now()-musclePeriod*86400000&&t<=Date.now()+86400000}).length} тренировок</p>
         <MuscleMap key={'period-'+musclePeriod} sex={profile.sex} loads={muscleLoad(workouts.filter(w=>{const t=Date.parse(w.date);return Number.isFinite(t)&&t>=Date.now()-musclePeriod*86400000&&t<=Date.now()+86400000}))}/>
         <h2>Мышцы текущей тренировки</h2><MuscleMap sex={profile.sex} loads={activeMuscles}/>
       </section> : <section>
-        <Dynamics workouts={workouts} measurements={measurements} sex={profile.sex}/>
+        <Dynamics workouts={workouts} measurements={measurements} sex={profile.sex} goals={goals}/>
       </section>}
     </main>
     {!editor && !settings && !detail && !textImport && <nav className="bottom-nav" aria-label="Основная навигация">

@@ -1,6 +1,6 @@
 const fs=require('node:fs'),path=require('node:path');
 const source=path.join(__dirname,'src');
-const required=['App.tsx','AnatomyMuscleMap.tsx','MuscleMap.tsx','ThemeToggle.tsx','WorkoutMiniWidget.tsx','db.ts','ironlog.ts','main.tsx','model.ts','smart.ts','style.css','theme.css','vite-env.d.ts'];
+const required=['App.tsx','AnatomyMuscleMap.tsx','MuscleMap.tsx','ThemeToggle.tsx','WorkoutMiniWidget.tsx','db.ts','storage.ts','ErrorBoundary.tsx','Dynamics.tsx','ironlog.ts','main.tsx','model.ts','smart.ts','style.css','theme.css','vite-env.d.ts'];
 const missing=required.filter(n=>!fs.existsSync(path.join(source,n)));
 if(missing.length)throw new Error('Отсутствуют файлы: '+missing.join(', '));
 for(const name of required.filter(n=>/\.tsx?$/.test(n))){const text=fs.readFileSync(path.join(source,name),'utf8');

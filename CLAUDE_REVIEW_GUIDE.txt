@@ -1,0 +1,12 @@
+LIFT 1.0 — исходный проект для аудита
+
+Проверь TypeScript / React / Vite, функциональность тренировок, IndexedDB, аналитику Dynamics.tsx, PWA/service worker, настройки путей для GitHub Pages и .github/workflows/deploy.yml.
+
+Известно: npm run build прошёл в GitHub Codespaces у владельца. Публикация GitHub Pages блокировалась ошибкой HTTP 400 unfinished deployment (не ошибка компиляции).
+
+Запуск:
+ npm install
+ npm run build
+ npm run dev
+
+В архиве нет node_modules/, dist/, .git и пользовательских данных. Не присылай секреты или токены.

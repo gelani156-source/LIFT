@@ -1,1 +1,30 @@
-<!doctype html><html lang="ru"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/><meta name="theme-color" content="#0d1016"/><meta name="description" content="LIFT — локальный журнал тренировок"/><link rel="manifest" href="./manifest.webmanifest"/><link rel="icon" href="./icon.svg" type="image/svg+xml"/><title>LIFT</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="theme-color" content="#0d1016"/>
+<meta name="description" content="LIFT — локальный журнал тренировок"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="LIFT"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<link rel="manifest" href="./manifest.webmanifest"/>
+<link rel="icon" href="./icon.svg" type="image/svg+xml"/>
+<link rel="apple-touch-icon" href="./apple-touch-icon.png"/>
+<title>LIFT</title>
+<script>
+// Тема применяется до первой отрисовки (без вспышки тёмной темы) и не падает, если localStorage заблокирован.
+try{var t=localStorage.getItem('osfit-theme');if(t!=='light'&&t!=='dark')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t;document.documentElement.style.colorScheme=t}catch(e){}
+</script>
+</head>
+<body>
+<div id="root"></div>
+<noscript>Для работы LIFT нужен включённый JavaScript.</noscript>
+<script>
+// Страховка от «белого экрана»: если приложение не отрисовалось (например, не загрузился устаревший файл после обновления), показываем подсказку.
+setTimeout(function(){var r=document.getElementById('root');if(r&&!r.childNodes.length){r.innerHTML='<div style="font-family:-apple-system,system-ui,sans-serif;padding:48px 20px;max-width:480px;margin:0 auto;color:#888"><h2 style="color:inherit">LIFT не загрузился</h2><p>Возможно, вышла новая версия, а в браузере остался старый кэш. Обновите страницу. Ваши данные не удалены.</p><button style="padding:12px 18px;font-size:16px;border-radius:12px;border:0;background:#0a84ff;color:#fff" onclick="(async function(){try{var k=await caches.keys();for(var i=0;i<k.length;i++)if(k[i].indexOf(\'lift-\')===0)await caches.delete(k[i]);var g=await navigator.serviceWorker.getRegistrations();for(var j=0;j<g.length;j++)await g[j].unregister()}catch(e){}location.reload()})()">Обновить</button></div>'}},8000);
+</script>
+<script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
