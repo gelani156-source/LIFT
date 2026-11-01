@@ -285,7 +285,6 @@ export default function App() {
   const [restUntil,setRestUntil]=useState(()=>Number(localStorage.getItem('osfit-rest-until')||0))
   const [clock,setClock]=useState(Date.now())
   const [editingWorkoutId,setEditingWorkoutId]=useState<string|null>(null)
-  const [selectedExercise,setSelectedExercise]=useState('')
   const [ironlogFile,setIronlogFile]=useState<File|null>(null)
   const [ironlogPreview,setIronlogPreview]=useState<{programs:Program[],workouts:Workout[],measurements:Measurement[],warnings:string[]}|null>(null)
   useEffect(()=>{if(!restUntil)return;const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[restUntil])
@@ -473,8 +472,6 @@ export default function App() {
   }
   const removeBody = async(id:string) => { if(!window.confirm('Удалить замер?')) return; try {await deleteMeasurement(id);await load()}catch(e){setError(String(e))} }
   const activeMuscles=exerciseMuscleLoad(rows)
-  const exerciseNames=Array.from(new Set(workouts.flatMap(w=>w.exercises.map(e=>e.name)))).sort()
-  const exerciseSeries=workouts.filter(w=>w.exercises.some(e=>e.name===selectedExercise)).slice().reverse().map(w=>({date:w.date.slice(0,10),value:Math.max(...w.exercises.filter(e=>e.name===selectedExercise).flatMap(e=>e.sets.filter(s=>s.done).map(t=>t.weight)),0)}))
   const recommendedWeight=(exercise:string)=>{for(const w of workouts){const line=w.exercises.find(e=>e.name.toLowerCase()===exercise.toLowerCase());if(!line)continue;const done=line.sets.filter(s=>s.done&&s.weight>0);if(!done.length)continue;const top=Math.max(...done.map(s=>s.weight));return Math.round((top+(done.every(s=>s.reps>=8)?profile.weightStep:0))/profile.weightStep)*profile.weightStep}return null}
   const handleIronlog=async(f:File)=>{setIronlogFile(f);setIronlogPreview(null);try{const raw=JSON.parse(await f.text()) as unknown;const result=convertIronlog(raw);setIronlogPreview(result)}catch(e){setError(e instanceof Error?e.message:String(e))}}
   const applyIronlog=async()=>{if(!ironlogPreview||!ironlogFile)return;try{if(!window.confirm(`Добавить ${ironlogPreview.workouts.length} тренировок и ${ironlogPreview.programs.length} программ? Существующие записи останутся.`))return;for(const p of ironlogPreview.programs)await saveProgram(p);for(const w of ironlogPreview.workouts)await saveWorkout(w);for(const m of ironlogPreview.measurements)await saveMeasurement(m);await load();setIronlogPreview(null);setIronlogFile(null);tell('Данные IRONLOG добавлены')}catch(e){setError(String(e))}}
@@ -504,11 +501,6 @@ export default function App() {
   const importSharedProgram=async(file:File)=>{try{const p=await readProgramFile(file);await saveProgram({...p,id:uid(),createdAt:new Date().toISOString()});await load();tell('Программа импортирована')}catch(e){setError(String(e))}}
   const doneCount = rows.reduce((n, r) => n + r.sets.filter(s => s.done).length, 0)
   const setCount = rows.reduce((n, r) => n + r.sets.length, 0)
-  const stats = {
-    sessions: workouts.length,
-    volume: workouts.reduce((n, w) => n + volumeOf(w.exercises), 0),
-    sets: workouts.reduce((n, w) => n + w.exercises.reduce((v, r) => v + r.sets.filter(s => s.done).length, 0), 0)
-  }
   const best = new Map<string, number>()
   for (const w of workouts) for (const r of w.exercises) for (const s of r.sets) {
     if (s.done) best.set(r.name, Math.max(best.get(r.name) ?? 0, estimate1RM(s.weight, s.reps)))

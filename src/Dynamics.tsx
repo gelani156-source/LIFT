@@ -1,6 +1,6 @@
 import {useMemo,useState} from 'react'
 import type {Workout,Measurement,SetLine} from './model'
-import {classify,labels,muscleLoad} from './MuscleMap'
+import {labels,muscleLoad} from './MuscleMap'
 import type {Muscle} from './MuscleMap'
 import MuscleMap from './MuscleMap'
 
