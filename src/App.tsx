@@ -109,67 +109,107 @@ const newLine = (name: string): ExerciseLine => ({ id: uid(), name, sets: [blank
 const newSet = (weight: number, reps: number): SetLine => ({ id: uid(), weight, reps, done: false })
 const num = (value: string) => Number(value.replace(',', '.'))
 
-// OSFIT 4.5: preserve all weight/set blocks and flag missing exercise details.
+// LIFT: импорт IRONLOG TXT — все блоки нагрузки, варианты порядка и неизвестный вес.
+// Вес гантелей хранится для ОДНОЙ гантели. Автоматического удвоения тоннажа здесь нет.
 function parseTrainingText(text: string): { exercises: ExerciseLine[], warnings: string[] } {
   const exercises: ExerciseLine[] = []
   const warnings: string[] = []
   const days = /^(понедельник|вторник|среда|четверг|пятница|суббота|воскресенье)\s*[:.]?$/i
   const bodyGroups = /^(дельты|плечи|грудь|спина|ноги|бицепс|трицепс|пресс|икры)$/i
-  const blockPattern = /(\d+(?:[.,]\d+)?)\s+(\d+)\s*[/*×xх]\s*(\d+)/gi
-  const setCountPattern = /^(.+?)\s+(\d+)\s*[/*×xх]\s*(\d+)(?:\s+(\d+(?:[.,]\d+)?))?$/i
-  const weightRepsPattern = /^(.+?)\s+(\d+(?:[.,]\d+)?)\s*\/\s*(\d+)\s+(\d+)$/i
-  const strip = (v:string) => v.replace(/^\s*(?:[-*•]\s*)?(?:\[\s*[xX]?\s*\]\s*)?/, '').trim()
+  const strip = (v: string) => v.replace(/^\s*(?:[-*•]\s*)?(?:\[\s*[xX]?\s*\]\s*)?/, '').trim()
+  const weightNumber = String.raw`\d+(?:[.,]\d+)?`
+  const sep = String.raw`[/\*×xх]`
+  const weightBlock = new RegExp(`^(${weightNumber})\\s+(\\d{1,2})\\s*${sep}\\s*(\\d{1,3})(?=\\s|$)`, 'i')
+  const singleBlock = new RegExp(`^(${weightNumber})\\s*${sep}\\s*(\\d{1,3})(?=\\s|$)`, 'i')
+  const countFirst = new RegExp(`^(\\d{1,2})\\s*${sep}\\s*(\\d{1,3})(?:\\s+(${weightNumber}|\\?))?$`, 'i')
+  const number = (v: string) => Number(v.replace(',', '.'))
+  const make = (weight: number, reps: number, count: number, unknown: boolean): SetLine[] =>
+    Array.from({length: count}, () => ({
+      ...newSet(weight, reps),
+      ...(unknown ? {note: 'Вес не указан — уточнить перед тренировкой'} : {})
+    }))
+  const valid = (weight: number, reps: number, count: number) =>
+    Number.isFinite(weight) && weight >= 0 && weight <= 9999 &&
+    Number.isInteger(reps) && reps >= 1 && reps <= 300 &&
+    Number.isInteger(count) && count >= 1 && count <= 30
+
   for (const raw of text.split(/\r?\n|;/)) {
     const line = strip(raw)
     if (!line || days.test(line)) continue
-    const nameOnly = line.match(bodyGroups)
-    if (nameOnly) {
-      // A body part is not an exercise. Do not invent an exercise or sets.
+    if (bodyGroups.test(line)) {
+      const group = bodyPartPrompt(line)
       exercises.push({id:uid(),name:line,sets:[]})
-      const group=bodyPartPrompt(line)
-      warnings.push(`«${line}» — выберите конкретное упражнение и задайте подходы после импорта${group?'. Варианты: '+suggestions(group).slice(0,4).join(', '):''}`)
+      warnings.push(`«${line}» — уточни упражнение и подходы${group ? '. Варианты: ' + suggestions(group).slice(0,4).join(', ') : ''}`)
       continue
     }
+
     let name = ''
     let found: SetLine[] = []
-    const blocks = [...line.matchAll(blockPattern)]
-    if (blocks.length && blocks[0].index !== undefined) {
-      const prefix = line.slice(0,blocks[0].index).trim()
-      const remainder = line.slice(blocks[0].index).replace(/\d+(?:[.,]\d+)?\s+\d+\s*[/*×xх]\s*\d+/gi,'').trim()
-      if (prefix && !remainder) {
-        name=prefix
-        for (const block of blocks) {
-          const weight=num(block[1]),count=Number(block[2]),reps=Number(block[3])
-          if(count<1||count>30||reps<1||reps>300||weight<0||weight>9999){found=[];break}
-          found.push(...Array.from({length:count},()=>newSet(weight,reps)))
+    let unknown = false
+    let dumbbell = false
+    // Ищем границу между названием и первым числовым блоком.
+    // Проверяем каждый числовой токен: цифры в названиях тоже возможны.
+    const normalized = line.replace(/\s*кг(?=\s|$)/gi, '').trim()
+    for (const token of normalized.matchAll(/\d+(?:[.,]\d+)?/g)) {
+      if (token.index === undefined || token.index === 0) continue
+      const prefix = normalized.slice(0, token.index).trim()
+      if (!prefix) continue
+      const tail = normalized.slice(token.index).trim()
+      const local: SetLine[] = []
+      let localUnknown = false
+      let recognized = false
+      const direct = tail.match(countFirst)
+      if (direct) {
+        const first = Number(direct[1]), reps = Number(direct[2]), last = direct[3]
+        // 3/12 15 кг = 3×12 по 15; 110/5 4 = 4×5 по 110.
+        // Для неоднозначных записей вес/повторы/количество выдаём предупреждение.
+        let count = first, weight = last && last !== '?' ? number(last) : 0
+        if (last && last !== '?' && first > 30 && Number.isInteger(weight) && weight <= 30) {
+          count = weight; weight = first
+          warnings.push(`Проверь формат «${line}»: принято как ${count}×${reps} с весом ${weight} кг`)
+        }
+        if (valid(weight, reps, count)) {
+          localUnknown = last === '?' || (last === undefined && !/пресс|скручив|подтяг|планк|отжим|брусь/i.test(prefix))
+          local.push(...make(weight, reps, count, localUnknown))
+          recognized = true
         }
       }
-    }
-    if(!found.length){
-      const m = line.match(setCountPattern)
-      if(m){
-        name=m[1].trim()
-        const count=Number(m[2]),reps=Number(m[3]),weight=m[4]?num(m[4]):0
-        if(count>=1&&count<=30&&reps>=1&&reps<=300&&weight>=0&&weight<=9999)
-          found=Array.from({length:count},()=>newSet(weight,reps))
-      }
-    }
-    if(!found.length){
-      const m=line.match(weightRepsPattern)
-      if(m){
-        name=m[1].trim()
-        const weight=num(m[2]),reps=Number(m[3]),count=Number(m[4])
-        if(weight>=0&&weight<=9999&&reps>=1&&reps<=300&&count>=1&&count<=30){
-          found=Array.from({length:count},()=>newSet(weight,reps))
-          warnings.push(`Проверьте «${line}»: принято как ${count}×${reps}, ${weight} кг`)
+      if (!recognized) {
+        let rest = tail
+        let blocks = 0
+        while (rest && blocks < 40) {
+          const weighted = rest.match(weightBlock)
+          if (weighted) {
+            const weight = number(weighted[1]), count = Number(weighted[2]), reps = Number(weighted[3])
+            if (!valid(weight, reps, count)) break
+            local.push(...make(weight, reps, count, false))
+            rest = rest.slice(weighted[0].length).trim(); blocks++; continue
+          }
+          const single = rest.match(singleBlock)
+          if (single) {
+            const weight = number(single[1]), reps = Number(single[2])
+            if (!valid(weight, reps, 1)) break
+            local.push(...make(weight, reps, 1, false))
+            rest = rest.slice(single[0].length).trim(); blocks++; continue
+          }
+          break
         }
+        recognized = local.length > 0 && !rest
+      }
+      if (recognized && local.length && local.length <= 300) {
+        name = prefix; found = local; unknown = localUnknown
+        dumbbell = /гантел/i.test(prefix)
+        break
       }
     }
     if (!found.length || !name) {warnings.push(`Не распознано: ${line}`);continue}
-    // Preserve tempo instructions as part of the name for review.
-    const existing = exercises.find(e=>e.name.toLocaleLowerCase('ru')===name.toLocaleLowerCase('ru'))
-    if (existing) existing.sets.push(...found)
-    else exercises.push({id:uid(),name,sets:found})
+    if (unknown) warnings.push(`«${line}»: вес неизвестен, заполни его перед тренировкой`)
+    const note = [unknown ? 'Вес уточнить' : '', dumbbell ? 'Вес указан для одной гантели; тоннаж в текущей версии не удваивается автоматически' : ''].filter(Boolean).join('. ')
+    const existing = exercises.find(e => e.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru'))
+    if (existing) {
+      existing.sets.push(...found)
+      if (note) existing.note = [existing.note, note].filter(Boolean).join('. ')
+    } else exercises.push({id:uid(),name,sets:found,...(note ? {note} : {})})
   }
   return {exercises,warnings}
 }
@@ -426,7 +466,7 @@ export default function App() {
       if (!planName.trim()) throw new Error('Укажите название программы')
       if (parsed.exercises.some(e=>e.sets.length===0) && !window.confirm('Есть мышечные группы без конкретного упражнения и подходов. Заполните их в редакторе после импорта. Продолжить?')) return
       if (!parsed.exercises.length) throw new Error('Нет распознанных упражнений')
-      if (parsed.warnings.length && !window.confirm(`Пропущено строк: ${parsed.warnings.length}. Сохранить распознанные упражнения?`)) return
+      if (parsed.warnings.length && !window.confirm(`Есть замечания: ${parsed.warnings.length}. Проверь распознанные упражнения. Сохранить?`)) return
       await saveProgram({ id: uid(), name: planName.trim(), exercises: parsed.exercises, createdAt: new Date().toISOString() })
       await load(); setTextImport(false); setPlanText(''); tell('Программа импортирована')
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
@@ -540,7 +580,7 @@ export default function App() {
         <textarea className="input" style={{ width: '100%', minHeight: 170, boxSizing: 'border-box' }} value={planText} onChange={e => setPlanText(e.target.value)} placeholder={'Среда\nЖим 80 4/6\nПрисед 4/8 92,5\nПресс 4*20'}/>
         <p className="muted small">Поддерживаются несколько блоков: «Жим 95 3/6 75 3/10», «Становая тяга 110/5 4», «Пресс». Сомнительные строки проверяйте перед сохранением.</p>
         <div className="card"><strong>Распознано: {parsed.exercises.length}</strong>
-          {parsed.exercises.map(e => <p className="muted small" key={e.id}>{e.name}: {e.sets.length ? e.sets.map((set,i)=>({set,i})).filter(({set,i})=>i===0||set.weight!==e.sets[i-1].weight||set.reps!==e.sets[i-1].reps).map(({set,i},index,groups)=>`${(index+1<groups.length?groups[index+1].i:e.sets.length)-i}×${set.reps} · ${fmt(set.weight)} кг`).join(' | ') : 'Упражнение и подходы требуют уточнения'}</p>)}
+          {parsed.exercises.map(e => <p className="muted small" key={e.id}>{e.name}: {e.sets.length ? e.sets.map((set,i)=>({set,i})).filter(({set,i})=>i===0||set.weight!==e.sets[i-1].weight||set.reps!==e.sets[i-1].reps).map(({set,i},index,groups)=>`${(index+1<groups.length?groups[index+1].i:e.sets.length)-i}×${set.reps} · ${set.note?.includes('Вес не указан')?'вес уточнить':fmt(set.weight)+' кг'}`).join(' | ') : 'Упражнение и подходы требуют уточнения'}{e.note&&<span> · {e.note}</span>}</p>)}
           {parsed.warnings.map((w, i) => <p className="small" key={i} style={{ color: '#e59b51' }}>{w}</p>)}
         </div>
         <button className="btn primary full" onClick={() => void importPlan()} disabled={!parsed.exercises.length}><Save size={18}/> Сохранить программу</button>
