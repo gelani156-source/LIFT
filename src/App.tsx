@@ -107,7 +107,6 @@ const formatDate = (s: string) => new Date(s).toLocaleDateString('ru-RU', { day:
 const fmt = (n: number) => n.toLocaleString('ru-RU', { maximumFractionDigits: 1 })
 const newLine = (name: string): ExerciseLine => ({ id: uid(), name, sets: [blankSet(), blankSet(), blankSet()] })
 const newSet = (weight: number, reps: number): SetLine => ({ id: uid(), weight, reps, done: false })
-const num = (value: string) => Number(value.replace(',', '.'))
 
 // LIFT: импорт IRONLOG TXT — все блоки нагрузки, варианты порядка и неизвестный вес.
 // Вес гантелей хранится для ОДНОЙ гантели. Автоматического удвоения тоннажа здесь нет.
