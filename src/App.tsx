@@ -135,6 +135,11 @@ function parseTrainingText(text: string): { exercises: ExerciseLine[], warnings:
   for (const raw of text.split(/\r?\n|;/)) {
     const line = strip(raw)
     if (!line || days.test(line)) continue
+    if (/^дельты$/i.test(line)) {
+      exercises.push({id:uid(),name:'Армейский жим',sets:make(0,10,4,true),note:'Автовыбор для дельт: уточни упражнение и рабочий вес'})
+      warnings.push('«Дельты»: выбран армейский жим 4×10 — проверь упражнение и укажи вес')
+      continue
+    }
     if (bodyGroups.test(line)) {
       const group = bodyPartPrompt(line)
       exercises.push({id:uid(),name:line,sets:[]})
@@ -148,7 +153,9 @@ function parseTrainingText(text: string): { exercises: ExerciseLine[], warnings:
     let dumbbell = false
     // Ищем границу между названием и первым числовым блоком.
     // Проверяем каждый числовой токен: цифры в названиях тоже возможны.
-    const normalized = line.replace(/\s*кг(?=\s|$)/gi, '').trim()
+    // Снаряд допускается после чисел: «Бицепс 4/10 15 гантели».
+    const trailingEquipment = /\s+(?:(?:с|со)\s+штангой|(?:с\s+)?гантел(?:ями|и|ей))\s*$/i
+    const normalized = line.replace(/\s*кг(?=\s|$)/gi, '').replace(trailingEquipment, '').trim()
     for (const token of normalized.matchAll(/\d+(?:[.,]\d+)?/g)) {
       if (token.index === undefined || token.index === 0) continue
       const prefix = normalized.slice(0, token.index).trim()
@@ -197,11 +204,16 @@ function parseTrainingText(text: string): { exercises: ExerciseLine[], warnings:
       }
       if (recognized && local.length && local.length <= 300) {
         name = prefix; found = local; unknown = localUnknown
-        dumbbell = /гантел/i.test(prefix)
+        dumbbell = /гантел/i.test(line)
         break
       }
     }
     if (!found.length || !name) {warnings.push(`Не распознано: ${line}`);continue}
+    if (/^бицепс(?:\s+(?:с\s+)?гантел(?:ями|и|ей))?$/i.test(name)) {
+      name = /гантел/i.test(line) ? 'Сгибание рук с гантелями' : 'Сгибание рук со штангой'
+    } else if (/^шраги(?:\s+(?:(?:с|со)\s+штангой|(?:с\s+)?гантел(?:ями|и|ей)))?$/i.test(name)) {
+      name = /штанг/i.test(line) ? 'Шраги со штангой' : /гантел/i.test(line) ? 'Шраги с гантелями' : 'Шраги'
+    }
     if (unknown) warnings.push(`«${line}»: вес неизвестен, заполни его перед тренировкой`)
     const note = [unknown ? 'Вес уточнить' : '', dumbbell ? 'Вес указан для одной гантели; тоннаж в текущей версии не удваивается автоматически' : ''].filter(Boolean).join('. ')
     const existing = exercises.find(e => e.name.toLocaleLowerCase('ru') === name.toLocaleLowerCase('ru'))
