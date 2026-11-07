@@ -1,4 +1,4 @@
-import type { ExerciseLine } from './model'
+import {exerciseDisplayName, type ExerciseLine} from './model'
 
 type Props = {
   name: string
@@ -19,8 +19,8 @@ export default function WorkoutMiniWidget({name,exercises,onToggle,onOpen,compac
       <div className="osfit-mini-count">{completed}/{exercises.length}</div>
     </header>
     <div className="osfit-mini-track" role="progressbar" aria-valuenow={completed} aria-valuemin={0} aria-valuemax={exercises.length}><span style={{width:`${exercises.length?100*completed/exercises.length:0}%`}}/></div>
-    <div className="osfit-mini-list">{ordered.map(e=>{const finished=isFinished(e);const count=e.sets.filter(s=>s.done).length;return <button type="button" key={e.id} className={'osfit-mini-exercise'+(finished?' is-done':'')} onClick={()=>onToggle(e.id)} aria-pressed={finished} aria-label={`${finished?'Отменить выполнение':'Отметить выполненным'}: ${e.name}`}>
-      <span className="osfit-mini-info"><span className="osfit-mini-name">{e.name}</span><small>{e.sets.length?`${count}/${e.sets.length} подходов`:'Нет подходов'}</small></span><span className="osfit-mini-check" aria-hidden="true">{finished?'✓':''}</span>
+    <div className="osfit-mini-list">{ordered.map(e=>{const finished=isFinished(e);const count=e.sets.filter(s=>s.done).length;return <button type="button" key={e.id} className={'osfit-mini-exercise'+(finished?' is-done':'')} onClick={()=>onToggle(e.id)} aria-pressed={finished} aria-label={`${finished?'Отменить выполнение':'Отметить выполненным'}: ${exerciseDisplayName(e.name)}`}>
+      <span className="osfit-mini-info"><span className="osfit-mini-name">{exerciseDisplayName(e.name)}</span><small>{e.sets.length?`${count}/${e.sets.length} подходов`:'Нет подходов'}</small></span><span className="osfit-mini-check" aria-hidden="true">{finished?'✓':''}</span>
     </button>})}</div>
     {onOpen&&<button type="button" className="osfit-mini-open" onClick={onOpen}>Открыть тренировку →</button>}
     <p className="osfit-mini-footnote">Галочка отмечает все подходы упражнения. Изменения сохраняются локально.</p>

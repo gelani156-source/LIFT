@@ -18,6 +18,7 @@ import {
 } from './db'
 import {
   blankSet, cloneLines, estimate1RM, exerciseCatalog, isWorkSet, localDay, uid, volumeOf,
+  weightUnitOf, weightInKg, formatWeight, exerciseDisplayName,
   type Program, type Workout, type ExerciseLine, type SetLine, type Schedule, type Profile, type Measurement
 } from './model'
 
@@ -95,7 +96,7 @@ function tableToTraining(rows:string[][]):ExerciseLine[]{
 }
 function fromPortableJson(data:unknown):ExerciseLine[]{
  if(!data||typeof data!=='object')throw new Error('Неверная структура JSON');const obj=data as Record<string,unknown>;const candidate=Array.isArray(obj.exercises)?obj.exercises:Array.isArray(obj.rows)?obj.rows:Array.isArray(obj.workouts)?(obj.workouts[0] as Record<string,unknown>)?.exercises:null;
- if(!Array.isArray(candidate))throw new Error('Нет списка exercises/rows в JSON');return candidate.map((raw:unknown)=>{const x=raw as Record<string,unknown>;const name=String(x.name||x.exercise||'').trim();const sets=Array.isArray(x.sets)?x.sets.map((v:unknown)=>{const a=v as Record<string,unknown>;return {...blankSet(),weight:Number(a.weight||0),reps:Number(a.reps||0),done:a.done===true||a.completed===true}}):[];if(!name||!sets.length||sets.some(s=>!Number.isFinite(s.weight)||!Number.isFinite(s.reps)||s.weight<0||s.reps<0))throw new Error('Ошибочный подход в импортируемом JSON');return {id:uid(),name,sets}})
+ if(!Array.isArray(candidate))throw new Error('Нет списка exercises/rows в JSON');return candidate.map((raw:unknown)=>{const x=raw as Record<string,unknown>;const name=String(x.name||x.exercise||'').trim();const sets=Array.isArray(x.sets)?x.sets.map((v:unknown)=>{const a=v as Record<string,unknown>;return {...blankSet(),weight:Number(a.weight||0),reps:Number(a.reps||0),done:a.done===true||a.completed===true}}):[];if(!name||!sets.length||sets.some(s=>!Number.isFinite(s.weight)||!Number.isFinite(s.reps)||s.weight<0||s.reps<0))throw new Error('Ошибочный подход в импортируемом JSON');return {id:uid(),name,sets,...(x.weightUnit==='kg'||x.weightUnit==='blocks'?{weightUnit:x.weightUnit}: {})}})
 }
 
 // Черновик из localStorage может быть повреждён (старая версия, ручная правка): чистим структуру, чтобы не уронить интерфейс.
@@ -269,7 +270,8 @@ export default function App() {
     let maximum=0
     for(const w of history)for(const e of w.exercises){if(e.name.trim().toLocaleLowerCase('ru')!==g.exercise.trim().toLocaleLowerCase('ru'))continue
       for(const set of e.sets){if(!set.done||set.kind==='warmup'||set.weight<0||set.reps<=0)continue
-        const score=g.kind==='weight'?(set.reps>=g.minimumReps?set.weight:0):g.kind==='reps'?(set.weight>=g.referenceWeight?set.reps:0):estimate1RM(set.weight,set.reps)
+        const kg=weightInKg(e,set.weight)
+        const score=g.kind==='weight'?(set.reps>=g.minimumReps?kg:0):g.kind==='reps'?(kg>=g.referenceWeight?set.reps:0):estimate1RM(kg,set.reps)
         maximum=Math.max(maximum,score)
       }
     }
@@ -396,14 +398,15 @@ export default function App() {
     const before = line?.sets[j]
     if (editor === 'session' && line && before && patch.done === true && !before.done && before.kind!=='warmup') {
       const updated = {...before, ...patch}
-      const newValue = updated.weight > 0 && updated.reps > 0 ? estimate1RM(updated.weight, updated.reps) : 0
+      const newValue = updated.weight > 0 && updated.reps > 0 ? estimate1RM(weightInKg(line,updated.weight), updated.reps) : 0
+      const recordValues=(e:ExerciseLine,sets=e.sets)=>sets.filter(s=>isWorkSet(s)&&s.weight>0).map(s=>estimate1RM(weightInKg(e,s.weight),s.reps))
       const previousValues = [
-        ...workouts.flatMap(w => w.exercises.filter(e => e.name.toLowerCase() === line.name.toLowerCase()).flatMap(e => e.sets)),
-        ...rows.flatMap((r,ri) => r.name.toLowerCase() === line.name.toLowerCase() ? r.sets.filter((_,si) => ri !== i || si !== j) : [])
-      ].filter(s => isWorkSet(s) && s.weight > 0).map(s => estimate1RM(s.weight,s.reps))
+        ...workouts.flatMap(w => w.exercises.filter(e => e.name.toLowerCase() === line.name.toLowerCase()).flatMap(e => recordValues(e))),
+        ...rows.flatMap((r,ri) => r.name.toLowerCase() === line.name.toLowerCase() ? recordValues(r,r.sets.filter((_,si) => ri !== i || si !== j)) : [])
+      ]
       const previousBest = Math.max(0,...previousValues)
       if (newValue > previousBest + 0.001) {
-        setPersonalRecord({exercise:line.name,weight:updated.weight,reps:updated.reps,estimated:newValue})
+        setPersonalRecord({exercise:exerciseDisplayName(line.name),weight:weightInKg(line,updated.weight),reps:updated.reps,estimated:newValue})
       }
     }
     changeRow(i, r => ({ ...r, sets: r.sets.map((s, k) => k === j ? { ...s, ...patch } : s) }))
@@ -426,11 +429,11 @@ export default function App() {
         for (const w of workouts.filter(w => w.id !== editingWorkoutId)) for (const e of w.exercises) for (const set of e.sets) {
           if (!isWorkSet(set) || set.weight <= 0) continue
           const key=e.name.toLowerCase()
-          oldRecords.set(key,Math.max(oldRecords.get(key)??0,estimate1RM(set.weight,set.reps)))
+          oldRecords.set(key,Math.max(oldRecords.get(key)??0,estimate1RM(weightInKg(e,set.weight),set.reps)))
         }
         const records: string[] = []
         for (const e of rows) {
-          const scored = e.sets.filter(s=>isWorkSet(s) && s.weight>0).map(s=>estimate1RM(s.weight,s.reps))
+          const scored = e.sets.filter(s=>isWorkSet(s) && s.weight>0).map(s=>estimate1RM(weightInKg(e,s.weight),s.reps))
           const score=Math.max(0,...scored)
           if(score>0 && score>(oldRecords.get(e.name.toLowerCase())??0)+0.001)records.push(e.name)
         }
@@ -495,7 +498,7 @@ export default function App() {
   }
   const removeBody = async(id:string) => { if(!window.confirm('Удалить замер?')) return; try {await deleteMeasurement(id);await load()}catch(e){setError(String(e))} }
   const activeMuscles=exerciseMuscleLoad(rows)
-  const recommendedWeight=(exercise:string)=>{for(const w of workouts){const line=w.exercises.find(e=>e.name.toLowerCase()===exercise.toLowerCase());if(!line)continue;const done=line.sets.filter(s=>s.done&&s.weight>0);if(!done.length)continue;const top=Math.max(...done.map(s=>s.weight));return Math.round((top+(done.every(s=>s.reps>=8)?profile.weightStep:0))/profile.weightStep)*profile.weightStep}return null}
+  const recommendedWeight=(exercise:ExerciseLine)=>{for(const w of workouts){const line=w.exercises.find(e=>e.name.toLowerCase()===exercise.name.toLowerCase());if(!line)continue;const done=line.sets.filter(s=>isWorkSet(s)&&s.weight>0);if(!done.length)continue;const step=weightUnitOf(exercise)==='blocks'?5:profile.weightStep;const top=Math.max(...done.map(s=>weightInKg(line,s.weight)));const kg=Math.round((top+(done.every(s=>s.reps>=8)?step:0))/step)*step;return weightUnitOf(exercise)==='blocks'?kg/5:kg}return null}
   const handleIronlog=async(f:File)=>{setIronlogFile(f);setIronlogPreview(null);try{const raw=JSON.parse(await f.text()) as unknown;const result=convertIronlog(raw);setIronlogPreview(result)}catch(e){setError(e instanceof Error?e.message:String(e))}}
   const applyIronlog=async()=>{if(!ironlogPreview||!ironlogFile)return;try{if(!window.confirm(`Добавить ${ironlogPreview.workouts.length} тренировок и ${ironlogPreview.programs.length} программ? Существующие записи останутся.`))return;for(const p of ironlogPreview.programs)await saveProgram(p);for(const w of ironlogPreview.workouts)await saveWorkout(w);for(const m of ironlogPreview.measurements)await saveMeasurement(m);await load();setIronlogPreview(null);setIronlogFile(null);tell('Данные IRONLOG добавлены')}catch(e){setError(String(e))}}
   // The mini widget operates on the active workout or its locally saved draft.
@@ -590,7 +593,7 @@ export default function App() {
         <textarea className="input" style={{ width: '100%', minHeight: 170, boxSizing: 'border-box' }} value={planText} onChange={e => setPlanText(e.target.value)} placeholder={'Среда\nЖим 80 4/6\nПрисед 4/8 92,5\nПресс 4*20'}/>
         <p className="muted small">Поддерживаются несколько блоков: «Жим 95 3/6 75 3/10», «Становая тяга 110/5 4», «Пресс». Сомнительные строки проверяйте перед сохранением.</p>
         <div className="card"><strong>Распознано: {parsed.exercises.length}</strong>
-          {parsed.exercises.map(e => <p className="muted small" key={e.id}>{e.name}: {e.sets.length ? e.sets.map((set,i)=>({set,i})).filter(({set,i})=>i===0||set.weight!==e.sets[i-1].weight||set.reps!==e.sets[i-1].reps).map(({set,i},index,groups)=>`${(index+1<groups.length?groups[index+1].i:e.sets.length)-i}×${set.reps} · ${set.note?.includes('Вес не указан')?'вес уточнить':fmt(set.weight)+' кг'}`).join(' | ') : 'Упражнение и подходы требуют уточнения'}{e.note&&<span> · {e.note}</span>}</p>)}
+          {parsed.exercises.map(e => <p className="muted small" key={e.id}>{e.name}: {e.sets.length ? e.sets.map((set,i)=>({set,i})).filter(({set,i})=>i===0||set.weight!==e.sets[i-1].weight||set.reps!==e.sets[i-1].reps).map(({set,i},index,groups)=>`${(index+1<groups.length?groups[index+1].i:e.sets.length)-i}×${set.reps} · ${set.note?.includes('Вес не указан')?'вес уточнить':formatWeight(e,set.weight)}`).join(' | ') : 'Упражнение и подходы требуют уточнения'}{e.note&&<span> · {e.note}</span>}</p>)}
           {parsed.warnings.map((w, i) => <p className="small" key={i} style={{ color: '#e59b51' }}>{w}</p>)}
         </div>
         <button className="btn primary full" onClick={() => void importPlan()} disabled={!parsed.exercises.length}><Save size={18}/> Сохранить программу</button>
@@ -604,21 +607,27 @@ export default function App() {
         {editor === 'session' && <div className="osfit-inline-actions"><button onClick={undo} disabled={!undoRows.length}>↶ Отменить действие</button><div className="osfit-segmented" role="group" aria-label="Вид тренировки">{(['simple','compact','expanded'] as const).map(v=><button key={v} className={viewMode===v?'active':''} aria-pressed={viewMode===v} onClick={()=>changeViewMode(v)}>{v==='simple'?'Простой':v==='compact'?'Компактный':'Расширенный'}</button>)}</div></div>}
         {editor === 'session' && <div className="session-stats"><span><b>{doneCount}</b> / {setCount} подходов</span><span><b>{fmt(volumeOf(rows))}</b> кг тоннаж</span></div>}
         {sortedRows.map((r) => {const i=rows.findIndex(v=>v.id===r.id);const finished=editor==='session'&&r.sets.length>0&&r.sets.every(v=>v.done);const collapsed=finished|| (viewMode==='simple'? !expandedRows.includes(r.id):expandedRows.includes(r.id));return <article className={'exercise-card'+(finished?' osfit-completed':'')} key={r.id}>
-          <div className="exercise-head"><div><span className="exercise-number">{String(i + 1).padStart(2, '0')}</span><strong>{r.name}</strong></div><button className="tiny-icon" title="Удалить упражнение" onClick={() => { setRows(old => old.filter((_, k) => k !== i)); setDirty(true) }}><Trash2 size={17}/></button></div>
-          <button className="osfit-exercise-summary" onClick={()=>toggleRow(r.id)}><span>{finished?'✓ Завершено · ':''}{r.sets.filter(x=>x.done).length}/{r.sets.length} подходов · {r.sets.length ? `${r.sets.find(s=>!s.done)?.weight ?? r.sets[0].weight} кг × ${r.sets.find(s=>!s.done)?.reps ?? r.sets[0].reps}` : 'Нет подходов'}</span><span>{collapsed?'Развернуть':'Свернуть'}</span></button>
-          {viewMode==='simple' && editor==='session' && !finished && <div className="osfit-simple"><div className="osfit-simple-plan">{r.sets.length?`${r.sets.find(s=>!s.done)?.weight??r.sets[0].weight} кг × ${r.sets.find(s=>!s.done)?.reps??r.sets[0].reps} · ${r.sets.length} подходов`:'Нет подходов'}</div><div className="osfit-progress-track"><div style={{width:`${r.sets.length?100*r.sets.filter(s=>s.done).length/r.sets.length:0}%`}}/></div><button className="btn primary full" disabled={!r.sets.some(s=>!s.done)} onClick={()=>{const j=r.sets.findIndex(s=>!s.done);if(j>=0)changeSet(i,j,{done:true})}}>✓ Выполнить следующий подход</button>{r.sets.some(s=>s.done)&&<button className="osfit-simple-undo" onClick={()=>{const j=r.sets.map(s=>s.done).lastIndexOf(true);if(j>=0)changeSet(i,j,{done:false})}}>↶ Отменить подход</button>}</div>}
+          <div className="exercise-head"><div><span className="exercise-number">{String(i + 1).padStart(2, '0')}</span><strong>{exerciseDisplayName(r.name)}</strong></div><button className="tiny-icon" title="Удалить упражнение" onClick={() => { setRows(old => old.filter((_, k) => k !== i)); setDirty(true) }}><Trash2 size={17}/></button></div>
+          <button className="osfit-exercise-summary" onClick={()=>toggleRow(r.id)}><span>{finished?'✓ Завершено · ':''}{r.sets.filter(x=>x.done).length}/{r.sets.length} подходов · {r.sets.length ? `${formatWeight(r,r.sets.find(s=>!s.done)?.weight ?? r.sets[0].weight)} × ${r.sets.find(s=>!s.done)?.reps ?? r.sets[0].reps}` : 'Нет подходов'}</span><span>{collapsed?'Развернуть':'Свернуть'}</span></button>
+          {viewMode==='simple' && editor==='session' && !finished && <div className="osfit-simple"><div className="osfit-simple-plan">{r.sets.length?`${formatWeight(r,r.sets.find(s=>!s.done)?.weight??r.sets[0].weight)} × ${r.sets.find(s=>!s.done)?.reps??r.sets[0].reps} · ${r.sets.length} подходов`:'Нет подходов'}</div><div className="osfit-progress-track"><div style={{width:`${r.sets.length?100*r.sets.filter(s=>s.done).length/r.sets.length:0}%`}}/></div><button className="btn primary full" disabled={!r.sets.some(s=>!s.done)} onClick={()=>{const j=r.sets.findIndex(s=>!s.done);if(j>=0)changeSet(i,j,{done:true})}}>✓ Выполнить следующий подход</button>{r.sets.some(s=>s.done)&&<button className="osfit-simple-undo" onClick={()=>{const j=r.sets.map(s=>s.done).lastIndexOf(true);if(j>=0)changeSet(i,j,{done:false})}}>↶ Отменить подход</button>}</div>}
+          <label className="field-label">Единицы ввода
+            <select className="input" aria-label={`Единицы нагрузки: ${exerciseDisplayName(r.name)}`} value={weightUnitOf(r)} onChange={e=>changeRow(i,x=>({...x,weightUnit:e.target.value as 'kg'|'blocks'}))}>
+              <option value="kg">Килограммы</option><option value="blocks">Блоки по 5 кг</option>
+            </select>
+          </label>
+          {weightUnitOf(r)==='blocks'&&<p className="muted small">Введите количество блоков. 1 блок = 5 кг; тоннаж и рекорды считаются в кг.</p>}
           {!collapsed&&<><div className="osfit-inline-actions"><button onClick={()=>changeExercise(i)}>Заменить упражнение</button><button onClick={()=>setExtrasRows(v=>v.includes(r.id)?v.filter(x=>x!==r.id):[...v,r.id])}>RPE / RIR / темп</button></div>
           <div className="exercise-options"><label>Суперсет <input className="input" placeholder="A, B..." value={r.superset||''} onChange={e=>changeRow(i,x=>({...x,superset:e.target.value}))}/></label><label>Заметка <input className="input" placeholder="Техника" value={r.note||''} onChange={e=>changeRow(i,x=>({...x,note:e.target.value}))}/></label></div>
-          <div className="set-headers"><span>Подход</span><span>Вес, кг</span><span>Повторы</span><span>{editor === 'session' ? 'Готово' : 'План'}</span></div>
+          <div className="set-headers"><span>Подход</span><span>{weightUnitOf(r)==='blocks'?'Блоки × 5 кг':'Вес, кг'}</span><span>Повторы</span><span>{editor === 'session' ? 'Готово' : 'План'}</span></div>
           {r.sets.map((s, j) => <div className="set-row" key={s.id}>
             <span className="set-index">{j + 1}</span>
-            <input aria-label={`Вес подхода ${j + 1}`} type="number" min="0" max="9999" step="0.5" inputMode="decimal" placeholder="0" value={s.weight||''} onChange={e => changeSet(i, j, { weight: Math.max(0, Number(e.target.value) || 0) })}/>
+            <input aria-label={`${weightUnitOf(r)==='blocks'?'Количество блоков':'Вес в кг'} подхода ${j + 1}`} type="number" min="0" max="9999" step={weightUnitOf(r)==='blocks'?1:0.5} inputMode="decimal" placeholder="0" value={s.weight||''} onChange={e => changeSet(i, j, { weight: Math.max(0, Number(e.target.value) || 0) })}/>
             <input aria-label={`Повторы подхода ${j + 1}`} type="number" min="0" max="999" inputMode="numeric" placeholder="0" value={s.reps||''} onChange={e => changeSet(i, j, { reps: Math.max(0, Number(e.target.value) || 0) })}/>
             {editor === 'session' ? <label className="check-wrap"><input aria-label={`Выполнен подход ${j + 1}`} type="checkbox" checked={s.done} onChange={e => changeSet(i, j, { done: e.target.checked })}/><span><Check size={17}/></span></label> : <span className="muted center">—</span>}
             <div className="set-extras" style={{display:compact&&!extrasRows.includes(r.id)?'none':undefined}}><select aria-label="Тип подхода" value={s.kind||'work'} onChange={e=>changeSet(i,j,{kind:e.target.value as SetLine['kind']})}><option value="work">Рабочий</option><option value="warmup">Разминка</option><option value="drop">Дроп-сет</option></select><input aria-label="RPE" title="RPE" type="number" placeholder="RPE" min="1" max="10" step="0.5" value={s.rpe??''} onChange={e=>changeSet(i,j,{rpe:e.target.value?Number(e.target.value):undefined})}/><input aria-label="RIR" title="RIR" type="number" placeholder="RIR" min="0" max="10" value={s.rir??''} onChange={e=>changeSet(i,j,{rir:e.target.value?Number(e.target.value):e.target.value==='0'?0:undefined})}/><input aria-label="Темп" placeholder="Темп 3-1-1-0" value={s.tempo||''} onChange={e=>changeSet(i,j,{tempo:e.target.value})}/></div>
             <button title="Удалить подход" className="row-remove" onClick={() => changeRow(i, x => ({ ...x, sets: x.sets.filter((_, k) => k !== j) }))}>×</button>
           </div>)}
-          {editor==='session'&&profile.autoProgress&&<p className="muted small">Рекомендация следующего рабочего веса: {recommendedWeight(r.name)===null?'нет данных':`${recommendedWeight(r.name)} кг`} (прибавка {profile.weightStep} кг при 8+ повторах во всех выполненных подходах прошлой тренировки)</p>}
+          {editor==='session'&&profile.autoProgress&&<p className="muted small">Рекомендация следующего рабочего веса: {recommendedWeight(r)===null?'нет данных':formatWeight(r,recommendedWeight(r)!)} (прибавка {weightUnitOf(r)==='blocks'?'1 блок (5 кг)':`${profile.weightStep} кг`} при 8+ повторах во всех выполненных подходах прошлой тренировки)</p>}
           <button className="add-set" onClick={() => changeRow(i, x => ({ ...x, sets: [...x.sets, {...(x.sets.at(-1)||blankSet()),id:uid(),done:false}] }))}><Plus size={16}/> Добавить подход</button>
           </>}
         </article>})}
@@ -632,7 +641,7 @@ export default function App() {
         <button className="back" onClick={() => setDetail(null)}><ChevronLeft size={18}/> История</button>
         <p className="eyebrow">{formatDate(detail.date)}</p><h1>{detail.name}</h1>
         <div className="metrics two"><div><small>Тоннаж</small><b>{fmt(volumeOf(detail.exercises))} кг</b></div><div><small>Подходы</small><b>{detail.exercises.reduce((n, r) => n + r.sets.filter(s => s.done).length, 0)}</b></div></div>
-        {detail.exercises.map(r => <div className="card" key={r.id}><strong>{r.name}</strong>{r.sets.filter(s => s.done).map((s, i) => <p className="muted small" key={s.id}>{i + 1}. {fmt(s.weight)} кг × {s.reps} · 1ПМ ≈ {fmt(estimate1RM(s.weight, s.reps))} кг</p>)}</div>)}
+        {detail.exercises.map(r => <div className="card" key={r.id}><strong>{exerciseDisplayName(r.name)}</strong>{r.sets.filter(s => s.done).map((s, i) => <p className="muted small" key={s.id}>{i + 1}. {formatWeight(r,s.weight)} × {s.reps} · 1ПМ ≈ {fmt(estimate1RM(weightInKg(r,s.weight), s.reps))} кг</p>)}</div>)}
         <button className="btn secondary full" onClick={() => editWorkout(detail)}><PenLine size={17}/> Редактировать тренировку</button>
         <button className="btn danger full" onClick={() => void removeW(detail.id)}><Trash2 size={17}/> Удалить запись</button>
       </section> : tab === 'train' ? <section>

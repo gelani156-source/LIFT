@@ -1,6 +1,7 @@
 
 import { useState } from 'react'
 import type { Workout, ExerciseLine } from './model'
+import { exerciseDisplayName, isWorkSet } from './model'
 
 export type Muscle =
   | 'chest'
@@ -86,7 +87,7 @@ const normalize = (value: string): string =>
 export function muscleShares(
   name: string
 ): MuscleShare[] {
-  const n = normalize(name)
+  const n = normalize(exerciseDisplayName(name))
 
   if (!n) return []
 
@@ -155,6 +156,14 @@ export function muscleShares(
     return shares(['shoulders', 1])
   }
 
+  // ТРИЦЕПС: до «кроссовера», иначе кабельный трицепс попадёт в грудные.
+
+  if (
+    /трицеп|француз|разгибани.*рук|pushdown/.test(n)
+  ) {
+    return shares(['triceps', 1])
+  }
+
   // ГРУДЬ: сведения рук
 
   if (
@@ -164,14 +173,6 @@ export function muscleShares(
       ['chest', 1],
       ['shoulders', 0.25]
     )
-  }
-
-  // ТРИЦЕПС
-
-  if (
-    /трицеп|француз|разгибани.*рук|pushdown/.test(n)
-  ) {
-    return shares(['triceps', 1])
   }
 
   // БИЦЕПС
@@ -368,10 +369,7 @@ export function muscleLoad(
   for (const workout of workouts || []) {
     for (const exercise of workout.exercises || []) {
       const completedSets = (exercise.sets || [])
-        .filter(set =>
-          set.done === true &&
-          set.kind !== 'warmup'
-        )
+        .filter(isWorkSet)
         .length
 
       if (completedSets === 0) continue
@@ -398,10 +396,7 @@ export function exerciseMuscleLoad(
 
   for (const exercise of exercises || []) {
     const completedSets = (exercise.sets || [])
-      .filter(set =>
-        set.done === true &&
-        set.kind !== 'warmup'
-      )
+      .filter(isWorkSet)
       .length
 
     if (completedSets === 0) continue

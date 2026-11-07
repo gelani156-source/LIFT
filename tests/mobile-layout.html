@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ru" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LIFT mobile layout regression fixture</title>
+<link rel="stylesheet" href="../src/style.css"><link rel="stylesheet" href="../src/theme.css?mobile-layout=2">
+<!-- Exact OSFIT_CSS extracted from App.tsx, intentionally loaded AFTER theme.css. -->
+<script>
+window.fixtureStylesReady=(async()=>{
+ const source=await fetch('../src/App.tsx',{cache:'no-store'}).then(r=>r.text());
+ const css=source.split('const OSFIT_CSS = `')[1]?.split('`;')[0];
+ if(!css)throw new Error('OSFIT_CSS not found');
+ const style=document.createElement('style');style.textContent=css;document.head.append(style);
+})();
+</script></head><body>
+<div class="app"><header class="header"><div class="brand"><span class="brand-icon">◈</span><div><strong>LIFT</strong><small>ТРЕНИРОВКИ БЕЗ ЛИШНЕГО</small></div></div><button class="icon-btn" aria-label="Настройки">⚙</button></header>
+<main class="content"><section>
+<div class="osfit-session-toolbar"><button class="back">‹ Назад</button><button class="btn secondary compact">▣ Сохранить и выйти</button></div>
+<div class="page-heading"><div><p class="eyebrow">АКТИВНАЯ ТРЕНИРОВКА</p><h1>Редактор программы</h1></div><button class="btn primary compact">＋ Создать</button></div>
+<input class="input title-input" aria-label="Название" value="Тренировка с длинным названием">
+<div class="card"><div class="exercise-head"><strong>Таймер отдыха</strong><button class="btn secondary compact">Старт 3600 с</button></div><strong>59:59</strong><button class="tiny-icon">Сброс</button></div>
+<div class="osfit-inline-actions"><button disabled>↶ Отменить действие</button><div class="osfit-segmented" role="group" aria-label="Вид тренировки"><button class="active">Простой</button><button>Компактный</button><button>Расширенный</button></div></div>
+<div class="session-stats"><span><b>12345</b> / 12345 подходов</span><span><b>1 234 567 890</b> кг тоннаж</span></div>
+<article class="exercise-card"><div class="exercise-head"><div><span class="exercise-number">01</span><strong>Сверхдлинноеназваниеупражнениябезпробелов / Тяга верхнего блока обратным хватом</strong></div><button class="tiny-icon" aria-label="Удалить упражнение">×</button></div>
+<button class="osfit-exercise-summary"><span>✓ Завершено · 100/100 подходов · 9999 кг × 999</span><span>Развернуть</span></button>
+<div class="osfit-inline-actions"><button>Заменить упражнение</button><button>RPE / RIR / темп</button></div>
+<div class="exercise-options"><label>Суперсет <input class="input" placeholder="A, B..."></label><label>Заметка <input class="input" placeholder="Техника"></label></div>
+<div class="set-headers"><span>Подход</span><span>Вес, кг</span><span>Повторы</span><span>Готово</span></div>
+<div class="set-row"><span class="set-index">100</span><input type="number" value="9999" aria-label="Вес"><input type="number" value="999" aria-label="Повторы"><label class="check-wrap"><input type="checkbox" checked aria-label="Готово"><span>✓</span></label><div class="set-extras"><select aria-label="Тип подхода"><option>Разминка</option></select><input type="number" placeholder="RPE"><input type="number" placeholder="RIR"><input placeholder="Темп 3-1-1-0"></div><button class="row-remove">×</button></div>
+<button class="btn primary full">✓ Выполнить следующий подход</button></article>
+<div class="osfit-section"><strong>Сравнить тренировки</strong><div class="osfit-input-row"><select class="input"><option>07 ноября 2026 · Очень длинное название первой тренировки</option></select><select class="input"><option>06 ноября 2026 · Очень длинное название второй тренировки</option></select></div></div>
+<button class="history-card"><div class="history-date"><b>07</b><small>нояб.</small></div><div class="history-body"><strong>Сверхдлинноеназваниетренировкибезпробелов / Длинная тренировка</strong><small>12345 упражнений · 1 234 567 890 кг</small></div><span class="history-arrow">›</span></button>
+<div class="program-card"><div class="program-top"><span class="program-mark">◈</span><div><strong>Сверхдлинноеназваниепрограммыбезпробелов</strong><p class="muted small">100 упражнений · 1000 подходов</p></div></div><div class="program-actions"><button class="btn primary">▷ Начать</button><button class="btn icon-only">✎</button><button class="btn icon-only">↓</button><button class="btn icon-only">▣</button><button class="btn icon-only">×</button></div></div>
+<div class="metrics osfit-stat-cards"><div><small>Продолжительность тренировки</small><b>123 456 789 кг</b></div><div><small>Выполненных подходов</small><b>12345</b></div><div><small>Максимальный результат</small><b>9999 кг</b></div></div>
+<section class="lift-dynamics"><div class="lift-tabs"><button>Общее</button><button>Силовые</button><button>Тело</button><button>Мышцы</button></div><div class="lift-periods"><button>7д</button><button>30д</button><button>3м</button><button>6м</button><button>1г</button><button>Всё</button></div><div class="lift-metrics"><button>1ПМ</button><button>Вес</button><button>Тоннаж</button><button>Лучший сет</button><button>Повторы</button><button>Дополнительный показатель</button></div>
+<div class="lift-stats"><div><small>Рабочих подходов</small><strong>123456789</strong></div><div><small>Средний тоннаж</small><strong>1 234 567 890 кг</strong></div></div>
+<div class="card lift-analytics-card"><h2>Максимальный результат / Сверхдлинноеназваниеупражнениябезпробелов</h2><div class="lift-chart"><div class="lift-chart-value"><b>1 234 567 890 кг</b><span>07 нояб. 2026</span></div><svg viewBox="0 0 340 180" style="display:block;width:100%;height:auto;overflow:visible"><text x="64" y="19" text-anchor="end" font-size="10" fill="currentColor">1 234 млн</text><polyline points="69,150 200,100 327,15" fill="none" stroke="#0a84ff"/><text x="69" y="175" font-size="10" fill="currentColor">01 нояб.</text><text x="327" y="175" text-anchor="end" font-size="10" fill="currentColor">07 нояб.</text></svg><button class="lift-export-chart">Сохранить график (SVG)</button></div><div class="lift-muscle-row"><span>Задняя поверхность бедра</span><b>123 456,5</b><div><i style="width:90%"></i></div></div></div></section>
+<div class="muscle-layout"><div class="osfit-view-buttons muscle-toolbar"><button>Спереди</button><button>Сзади</button><button>Мужская модель</button></div><div class="muscle-legend"><button><span>Задняя поверхность бедра</span><b>12345.5</b></button><button><span>Широчайшие и спина</span><b>12345.5</b></button></div></div>
+<div class="osfit-mini-widget"><div class="osfit-mini-head"><div><span class="osfit-mini-brand">LIFT</span><strong>Сверхдлинноеназваниетренировкибезпробелов</strong></div><span class="osfit-mini-count">100 / 100</span></div><button class="osfit-mini-exercise"><span class="osfit-mini-info"><span class="osfit-mini-name">Сверхдлинноеназваниеупражнениябезпробелов</span><small>4 подхода · 9999 кг</small></span><span class="osfit-mini-check">✓</span></button></div>
+<h1>Сверхдлинноеназваниетренировкибезпробелов</h1><div class="card"><strong>Сверхдлинноеназваниеупражнениябезпробелов</strong><p class="muted small">1. 9999 кг × 999 · 1ПМ ≈ 12345 кг</p></div>
+</section></main></div><script src="mobile-layout.js"></script>
+<pre id="result" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+<script>fixtureStylesReady.then(()=>requestAnimationFrame(()=>{
+ document.querySelector('#result').textContent=JSON.stringify(runMobileLayoutChecks(),null,2);
+}));</script></body></html>

@@ -90,3 +90,75 @@ body{transition:background-color .2s,color .2s}
 .header{height:calc(76px + env(safe-area-inset-top));padding-top:env(safe-area-inset-top)}
 .toast{top:calc(85px + env(safe-area-inset-top))}
 .app{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+
+/* Intrinsic mobile sizing. .app specificity beats the later OSFIT_CSS <style>;
+   analytics filter scrollers deliberately keep their nowrap/overflow behavior. */
+.app .osfit-inline-actions > .osfit-segmented{flex:1 1 22rem;min-width:0;max-width:100%}
+.app .osfit-segmented{display:flex;flex-wrap:wrap;gap:3px}
+.app .osfit-segmented > button{flex:1 0 auto;max-width:100%;padding:10px 6px;white-space:normal;word-break:normal;overflow-wrap:normal}
+.app .osfit-inline-actions > button{max-width:100%;white-space:normal}
+
+/* Allow text columns to shrink, not the adjacent icons/dates/actions. Only
+   user-authored text needs emergency wrapping for names without spaces. */
+.app .brand,.app .brand > div,.app .page-heading > div,
+.app .exercise-head > div,.app .exercise-head strong,.app .history-body,
+.app .program-top > div,.app .osfit-mini-head > div{min-width:0}
+.app .brand-icon,.app .header > .icon-btn,.app .exercise-number,
+.app .exercise-head > .tiny-icon,.app .history-date,.app .history-arrow,
+.app .program-mark,.app .btn > svg,.app .catalog button > svg{flex-shrink:0}
+.app .brand small{white-space:normal;overflow-wrap:anywhere}
+.app .page-heading{flex-wrap:wrap}
+.app .page-heading h1,.app .exercise-head strong,.app .history-body,
+.app .content > section > h1,.app .content > section > .card > strong,
+.app .program-top > div,.app .osfit-mini-info,.app .osfit-mini-head strong,
+.app .lift-analytics-card h2,.app .osfit-template-list button{overflow-wrap:anywhere}
+.app .exercise-head{flex-wrap:wrap}
+.app .exercise-head > div{flex:1}
+.app .osfit-exercise-summary{flex-wrap:wrap}
+.app .osfit-exercise-summary > span{min-width:0;overflow-wrap:anywhere}
+.app .session-stats,.app .program-actions,.app .osfit-mini-head{flex-wrap:wrap}
+.app .session-stats > span{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.app .program-actions > .primary{flex:1 0 7rem}
+.app .program-actions > .icon-only{flex:0 0 42px}
+.app .osfit-session-toolbar .btn{max-width:100%;white-space:normal}
+.app .catalog button{gap:8px;overflow-wrap:anywhere}
+
+/* Zero-minimum grid tracks prevent form controls from imposing their native
+   intrinsic width. Keep selects native, with a whole row on narrow screens. */
+.app .exercise-options{grid-template-columns:minmax(0,1fr) minmax(0,2fr)}
+.app .exercise-options > label,.app .set-extras > *{min-width:0}
+/* Extras occur before delete in JSX; keep delete on the main five-column row. */
+.app .set-headers,.app .set-row{grid-template-columns:48px minmax(0,1fr) minmax(0,1fr) 44px 28px}
+.app .set-row > .row-remove{grid-column:5;grid-row:1}
+.app .set-row > .set-extras{grid-row:2}
+.app .osfit-input-row > .input{flex:1 1 0;min-width:0}
+.app .metrics{grid-template-columns:repeat(3,minmax(0,1fr))}
+.app .metrics.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.app .metrics small,.app .lift-stats small,.app .osfit-stat-cards small{overflow-wrap:anywhere}
+.app .lift-chart{min-width:0;overflow:visible}
+.app .lift-chart-value{flex-wrap:wrap}
+.app .lift-chart-value > b,.app .lift-chart-value > span{min-width:0;overflow-wrap:anywhere}
+.app .lift-export-chart{max-width:100%;white-space:normal}
+.app .lift-muscle-row{grid-template-columns:minmax(0,1fr) auto}
+.app .lift-muscle-row > span{min-width:0;overflow-wrap:anywhere}
+.app .muscle-legend{grid-template-columns:repeat(2,minmax(0,1fr))}
+.app .muscle-legend button{min-width:0;flex-wrap:wrap}
+.app .muscle-legend button > span{min-width:0;overflow-wrap:anywhere}
+.app .osfit-view-buttons{flex-wrap:wrap}
+.app .osfit-mini-head > div{overflow-wrap:anywhere}
+
+@media(max-width:600px){
+  /* Undo stays on its own row; all three mode labels get the full content width.
+     Flex wrapping also keeps each word intact with larger accessibility fonts. */
+  .app .osfit-inline-actions > .osfit-segmented{flex-basis:100%;width:100%}
+  .app .osfit-input-row:has(> select + select){flex-direction:column;align-items:stretch}
+  .app .osfit-input-row > select.input{flex:none;width:100%}
+  .app .exercise-options{grid-template-columns:minmax(0,1fr) minmax(0,1.5fr)}
+  /* Match header/body tracks and reserve the actual 44px check / 28px delete
+     targets (legacy tracks were only 40/12px at 320px). */
+  .app .set-headers,.app .set-row{grid-template-columns:42px minmax(0,1fr) minmax(0,1fr) 44px 28px;gap:4px}
+  .app .set-headers > span{min-width:0;overflow-wrap:anywhere}
+}
+@media(max-width:390px){
+  .app .osfit-stat-cards{grid-template-columns:minmax(0,1fr)}
+}

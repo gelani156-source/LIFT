@@ -38,6 +38,7 @@ export function cleanSet(raw:unknown):SetLine{
 export function cleanExercise(raw:unknown):ExerciseLine{
  const e=(raw&&typeof raw==='object'?raw:{}) as Record<string,unknown>
  const out:ExerciseLine={id:str(e.id)||uid(),name:str(e.name,'Упражнение'),sets:(Array.isArray(e.sets)?e.sets:[]).map(cleanSet)}
+ if(e.weightUnit==='kg'||e.weightUnit==='blocks')out.weightUnit=e.weightUnit
  if(typeof e.superset==='string')out.superset=e.superset
  if(typeof e.note==='string')out.note=e.note
  return out

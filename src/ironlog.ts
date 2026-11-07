@@ -5,8 +5,22 @@ const array=(v:unknown):unknown[]=>Array.isArray(v)?v:[]
 const string=(v:unknown)=>typeof v==='string'?v.trim():''
 const date=(v:unknown)=>{const s=string(v);if(!s)return new Date().toISOString();const d=new Date(s);return Number.isFinite(d.getTime())?d.toISOString():new Date().toISOString()}
 // doneByDefault: для записей ИСТОРИИ подход считается выполненным, если источник явно не пометил его невыполненным; иначе импорт давал нулевой тоннаж.
-const parseSets=(raw:unknown,doneByDefault=false):SetLine[]=>array(raw).map(v=>{const s=obj(v);const flag=s.done??s.completed??s.isDone;return {id:uid(),weight:finite(s.weight??s.kg),reps:finite(s.reps??s.repetitions??s.repeat),done:typeof flag==='boolean'?flag:doneByDefault}}).filter(s=>s.weight>=0&&s.reps>=0&&s.reps<=300)
-const parseExercises=(raw:unknown,doneByDefault=false):ExerciseLine[]=>array(raw).map(v=>{const e=obj(v);return {id:uid(),name:string(e.name??e.exercise??e.title),sets:parseSets(e.sets??e.approaches,doneByDefault)}}).filter(e=>e.name&&e.sets.length)
+const parseSets=(raw:unknown,doneByDefault=false):SetLine[]=>array(raw).map(v=>{
+ const s=obj(v);const flag=s.done??s.completed??s.isDone
+ const out:SetLine={id:uid(),weight:finite(s.weight??s.kg),reps:finite(s.reps??s.repetitions??s.repeat),done:typeof flag==='boolean'?flag:doneByDefault}
+ if(s.kind==='work'||s.kind==='warmup'||s.kind==='drop')out.kind=s.kind
+ for(const key of ['rpe','rir'] as const)if(s[key]!==undefined&&(typeof s[key]==='number'||typeof s[key]==='string')&&Number.isFinite(Number(String(s[key]).replace(',','.'))))out[key]=finite(s[key])
+ if(typeof s.tempo==='string')out.tempo=s.tempo
+ if(typeof s.note==='string')out.note=s.note
+ return out
+}).filter(s=>s.weight>=0&&s.reps>=0&&s.reps<=300)
+const parseExercises=(raw:unknown,doneByDefault=false):ExerciseLine[]=>array(raw).map(v=>{
+ const e=obj(v);const out:ExerciseLine={id:uid(),name:string(e.name??e.exercise??e.title),sets:parseSets(e.sets??e.approaches,doneByDefault)}
+ if(e.weightUnit==='kg'||e.weightUnit==='blocks')out.weightUnit=e.weightUnit
+ if(typeof e.superset==='string')out.superset=e.superset
+ if(typeof e.note==='string')out.note=e.note
+ return out
+}).filter(e=>e.name&&e.sets.length)
 export function convertIronlog(raw:unknown):{programs:Program[],workouts:Workout[],measurements:Measurement[],warnings:string[]}{
  const x=obj(raw);const warnings:string[]=[];const programs:Program[]=[];const workouts:Workout[]=[];const measurements:Measurement[]=[]
  const sources=[...array(x.programs),...array(x.plans)];for(const p of sources){const v=obj(p);const exercises=parseExercises(v.exercises??v.items);if(!exercises.length){warnings.push('Программа без распознанных подходов пропущена');continue}programs.push({id:uid(),name:string(v.name??v.title)||'Импортированная программа',createdAt:date(v.createdAt),exercises})}

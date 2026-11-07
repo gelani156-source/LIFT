@@ -1,5 +1,5 @@
 // LIFT service worker. Кэш общий для всего origin (github.io), поэтому трогаем ТОЛЬКО свои кэши с префиксом "lift-".
-const CACHE='lift-shell-v3.1.0'
+const CACHE='lift-shell-v3.1.1'
 const scope=new URL(self.registration.scope)
 const inScope=u=>u.origin===scope.origin&&u.pathname.startsWith(scope.pathname)
 self.addEventListener('install',e=>e.waitUntil((async()=>{
