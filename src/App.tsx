@@ -17,7 +17,7 @@ import {
   deleteWorkout, importBackup, exportBackup, allSchedule, saveSchedule, deleteSchedule, getProfile, saveProfile, saveMeasurement, deleteMeasurement
 } from './db'
 import {
-  blankSet, cloneLines, estimate1RM, exerciseCatalog, isWorkSet, localDay, uid, volumeOf,
+  blankSet, cloneLines, estimate1RM, exerciseCatalog, isWorkSet, localDay, uid, volumeOf, workoutDate,
   weightUnitOf, weightInKg, formatWeight, exerciseDisplayName,
   type Program, type Workout, type ExerciseLine, type SetLine, type Schedule, type Profile, type Measurement
 } from './model'
@@ -100,8 +100,8 @@ function fromPortableJson(data:unknown):ExerciseLine[]{
 }
 
 // Черновик из localStorage может быть повреждён (старая версия, ручная правка): чистим структуру, чтобы не уронить интерфейс.
-type Draft={name:string,rows:ExerciseLine[],activeProgramId:string|null,editingWorkoutId:string|null}
-const readDraft=():Draft|null=>{try{const raw=JSON.parse(store.get('osfit-session-draft')||'null') as Record<string,unknown>|null;if(!raw||typeof raw!=='object'||!Array.isArray(raw.rows))return null;return {name:typeof raw.name==='string'?raw.name:'Тренировка',rows:cleanExercises(raw.rows),activeProgramId:typeof raw.activeProgramId==='string'?raw.activeProgramId:null,editingWorkoutId:typeof raw.editingWorkoutId==='string'?raw.editingWorkoutId:null}}catch{return null}}
+type Draft={name:string,rows:ExerciseLine[],activeProgramId:string|null,editingWorkoutId:string|null,sessionDate:string}
+const readDraft=():Draft|null=>{try{const raw=JSON.parse(store.get('osfit-session-draft')||'null') as Record<string,unknown>|null;if(!raw||typeof raw!=='object'||!Array.isArray(raw.rows))return null;return {name:typeof raw.name==='string'?raw.name:'Тренировка',rows:cleanExercises(raw.rows),activeProgramId:typeof raw.activeProgramId==='string'?raw.activeProgramId:null,editingWorkoutId:typeof raw.editingWorkoutId==='string'?raw.editingWorkoutId:null,sessionDate:typeof raw.sessionDate==='string'?raw.sessionDate:''}}catch{return null}}
 type Tab = 'train' | 'history' | 'progress' | 'calendar' | 'body' | 'muscles'
 type Editor = 'program' | 'session' | null
 const formatDate = (s: string) => new Date(s).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -310,15 +310,16 @@ export default function App() {
   const [restUntil,setRestUntil]=useState(()=>Number(store.get('osfit-rest-until')||0))
   const [clock,setClock]=useState(Date.now())
   const [editingWorkoutId,setEditingWorkoutId]=useState<string|null>(null)
+  const [sessionDate,setSessionDate]=useState('')
   const [ironlogFile,setIronlogFile]=useState<File|null>(null)
   const [ironlogPreview,setIronlogPreview]=useState<{programs:Program[],workouts:Workout[],measurements:Measurement[],warnings:string[]}|null>(null)
   useEffect(()=>{if(!restUntil)return;const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[restUntil])
   const secondsLeft=Math.max(0,Math.ceil((restUntil-clock)/1000))
-  useEffect(()=>{if(editor==='session'&&rows.length){store.set('osfit-session-draft',JSON.stringify({name,rows,activeProgramId,editingWorkoutId}))}},[editor,rows,name,activeProgramId,editingWorkoutId])
+  useEffect(()=>{if(editor==='session'&&rows.length){store.set('osfit-session-draft',JSON.stringify({name,rows,activeProgramId,editingWorkoutId,sessionDate}))}},[editor,rows,name,activeProgramId,editingWorkoutId,sessionDate])
   const saveSessionDraft = () => {
     if(editor!=='session') return
     try {
-      store.set('osfit-session-draft', JSON.stringify({name,rows,activeProgramId,editingWorkoutId,savedAt:new Date().toISOString()}))
+      store.set('osfit-session-draft', JSON.stringify({name,rows,activeProgramId,editingWorkoutId,sessionDate,savedAt:new Date().toISOString()}))
       setDraft(true)
       setDirty(false)
       setEditor(null)
@@ -326,7 +327,7 @@ export default function App() {
       tell('Тренировка сохранена. Продолжить можно на главной.')
     } catch (e) { setError('Не удалось сохранить черновик: '+String(e)) }
   }
-  const restoreDraft=()=>{const d=readDraft();if(!d){setError('Черновик повреждён или отсутствует');store.remove('osfit-session-draft');setDraft(false);return}setName(d.name);setRows(d.rows);setActiveProgramId(d.activeProgramId);setEditingWorkoutId(d.editingWorkoutId);setExpandedRows([]);setUndoRows([]);setEditor('session');setDraft(false)}
+  const restoreDraft=()=>{const d=readDraft();if(!d){setError('Черновик повреждён или отсутствует');store.remove('osfit-session-draft');setDraft(false);return}setName(d.name);setRows(d.rows);setActiveProgramId(d.activeProgramId);setEditingWorkoutId(d.editingWorkoutId);setSessionDate(d.sessionDate);setExpandedRows([]);setUndoRows([]);setEditor('session');setDraft(false)}
   const storeProfile=(patch:Partial<Profile>)=>{setProfile(old=>{const p={...old,...patch};saveProfile(p);return p})}
   const addPlanned=async()=>{if(!plannedProgram)return setError('Выберите программу');try{await saveSchedule({id:uid(),date:plannedDate,programId:plannedProgram,repeatDays:repeatDays||undefined});setSchedule(await allSchedule());tell('Тренировка запланирована')}catch(e){setError(String(e))}}
   const removePlanned=async(id:string)=>{await deleteSchedule(id);setSchedule(await allSchedule())}
@@ -334,8 +335,8 @@ export default function App() {
 
   useEffect(()=>{setDraft(!!store.get('osfit-session-draft'))},[])
   const createTemplate=async(index:number)=>{try{const tmpl=PLAN_TEMPLATES[index];for(const day of tmpl.days)await saveProgram({id:uid(),name:day.name,createdAt:new Date().toISOString(),exercises:toLines(day.items)});await load();setShowTemplates(false);tell(`Добавлено программ: ${tmpl.days.length}`)}catch(e){setError(String(e))}}
-  const savePortable=()=>{if(editor!=='session'||!rows.length)return;const data={format:'osfit-active-session',version:1,name,exercises:rows,savedAt:new Date().toISOString()};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='osfit-active-session.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);tell('Файл текущей тренировки сохранён')}
-  const importPortable=async(file:File)=>{try{const extension=file.name.split('.').pop()?.toLowerCase();let exercises:ExerciseLine[]=[];if(extension==='json')exercises=fromPortableJson(JSON.parse(await file.text()));else if(extension==='xlsx')exercises=tableToTraining(await xlsxAsRows(file));else if(extension==='csv'){const text=await file.text();const delim=text.split(/\r?\n/)[0].includes(';')?';':',';exercises=tableToTraining(text.split(/\r?\n/).map(x=>x.split(delim).map(v=>v.trim().replace(/^"|"$/g,''))))}else if(extension==='txt')exercises=parseTrainingText(await file.text()).exercises;else throw new Error('Поддерживаются TXT, JSON, CSV и XLSX');if(!exercises.length)throw new Error('Не найдено распознанных упражнений');if(!window.confirm(`Импортировать ${exercises.length} упражнений? Текущие несохранённые изменения будут заменены.`))return;setName(file.name.replace(/\.[^.]+$/,''));setRows(exercises);setActiveProgramId(null);setEditingWorkoutId(null);setEditor('session');setSettings(false);setTextImport(false);setShowTemplates(false);setDirty(true);setPortableInfo(`Импортировано ${exercises.length} упражнений. Проверьте выполненные подходы.`);tell('Тренировка загружена')}catch(e){setError(e instanceof Error?e.message:String(e))}}
+  const savePortable=()=>{if(editor!=='session'||!rows.length)return;const data={format:'osfit-active-session',version:1,name,sessionDate,exercises:rows,savedAt:new Date().toISOString()};const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='osfit-active-session.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);tell('Файл текущей тренировки сохранён')}
+  const importPortable=async(file:File)=>{try{const extension=file.name.split('.').pop()?.toLowerCase();let exercises:ExerciseLine[]=[];let importedDate='',importedName='';if(extension==='json'){const data=JSON.parse(await file.text());exercises=fromPortableJson(data);if(data?.format==='osfit-active-session'){if(typeof data.sessionDate==='string'&&data.sessionDate){workoutDate(data.sessionDate);importedDate=data.sessionDate}if(typeof data.name==='string')importedName=data.name}}else if(extension==='xlsx')exercises=tableToTraining(await xlsxAsRows(file));else if(extension==='csv'){const text=await file.text();const delim=text.split(/\r?\n/)[0].includes(';')?';':',';exercises=tableToTraining(text.split(/\r?\n/).map(x=>x.split(delim).map(v=>v.trim().replace(/^"|"$/g,''))))}else if(extension==='txt')exercises=parseTrainingText(await file.text()).exercises;else throw new Error('Поддерживаются TXT, JSON, CSV и XLSX');if(!exercises.length)throw new Error('Не найдено распознанных упражнений');if(!window.confirm(`Импортировать ${exercises.length} упражнений? Текущая тренировка и сохранённый черновик будут заменены.`))return;setName(importedName||file.name.replace(/\.[^.]+$/,''));setRows(exercises);setActiveProgramId(null);setEditingWorkoutId(null);setSessionDate(importedDate);setEditor('session');setSettings(false);setTextImport(false);setShowTemplates(false);setDirty(true);setPortableInfo(`Импортировано ${exercises.length} упражнений. Проверьте выполненные подходы.`);tell('Тренировка загружена')}catch(e){setError(e instanceof Error?e.message:String(e))}}
   const startRest=()=>{setClock(Date.now());const until=Date.now()+restDuration*1000;setRestUntil(until);store.set('osfit-rest-until',String(until))}
   const file = useRef<HTMLInputElement>(null)
 
@@ -343,7 +344,7 @@ export default function App() {
     const {programs:p,workouts:w,measurements:m,schedule:a} = await loadSnapshot()
     setSchedule(a);setMeasurements(m.sort((a,b)=>b.date.localeCompare(a.date)))
     setPrograms(p.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
-    setWorkouts(w.sort((a, b) => b.date.localeCompare(a.date)))
+    setWorkouts(w.sort((a, b) => Date.parse(b.date)-Date.parse(a.date)))
   }, [])
   useEffect(() => {
     load().catch(e => setError(String(e))).finally(() => setBusy(false))
@@ -360,7 +361,7 @@ export default function App() {
   const abandon = () => {
     if (editor === 'session') {
       try {
-        store.set('osfit-session-draft',JSON.stringify({name,rows,activeProgramId,editingWorkoutId,savedAt:new Date().toISOString()}))
+        store.set('osfit-session-draft',JSON.stringify({name,rows,activeProgramId,editingWorkoutId,sessionDate,savedAt:new Date().toISOString()}))
         setDraft(true)
         setDirty(false)
         setEditor(null)
@@ -387,7 +388,7 @@ export default function App() {
     if (store.get('osfit-session-draft') && !window.confirm('Есть сохранённая незавершённая тренировка. Начать новую вместо неё? Старая будет заменена.')) return
     if (!abandon()) return
     setName(p.name); setRows(cloneLines(p.exercises));setExpandedRows([]);setUndoRows([])
-    setActiveProgramId(p.id); setEditingWorkoutId(null); setEditor('session'); setDirty(false)
+    setActiveProgramId(p.id); setEditingWorkoutId(null); setSessionDate(''); setEditor('session'); setDirty(false)
   }
   const changeRow = (index: number, fn: (r: ExerciseLine) => ExerciseLine) => {
     setUndoRows(old=>[...old.slice(-9),structuredClone(rows)])
@@ -437,7 +438,7 @@ export default function App() {
           const score=Math.max(0,...scored)
           if(score>0 && score>(oldRecords.get(e.name.toLowerCase())??0)+0.001)records.push(e.name)
         }
-        await saveWorkout({ id: editingWorkoutId ?? uid(), name: name.trim(), date: original?.date ?? new Date().toISOString(), programId: activeProgramId, exercises: rows, volume: volumeOf(rows) })
+        await saveWorkout({ id: editingWorkoutId ?? uid(), name: name.trim(), date: workoutDate(sessionDate,original?.date), programId: activeProgramId, exercises: rows, volume: volumeOf(rows) })
         setLastSummary({name:name.trim(),exercises:rows.length,sets:rows.reduce((n,r)=>n+r.sets.filter(s=>s.done).length,0),volume:volumeOf(rows),prs:records})
         setPersonalRecord(null)
         tell('Тренировка сохранена')
@@ -449,7 +450,7 @@ export default function App() {
     if (!window.confirm('Удалить программу? История останется.')) return
     try { await deleteProgram(id); await load() } catch (e) { setError(String(e)) }
   }
-  const editWorkout=(w:Workout)=>{setDetail(null);setTab('history');setName(w.name);setRows(structuredClone(w.exercises));setActiveProgramId(w.programId);setEditingWorkoutId(w.id);setEditor('session');setDirty(false)}
+  const editWorkout=(w:Workout)=>{if(store.get('osfit-session-draft')&&!window.confirm('Есть сохранённая незавершённая тренировка. Редактировать запись вместо неё? Черновик будет заменён.'))return;setDetail(null);setTab('history');setName(w.name);setRows(structuredClone(w.exercises));setActiveProgramId(w.programId);setEditingWorkoutId(w.id);setSessionDate(localDay(w.date));setEditor('session');setDirty(false)}
   const removeW = async (id: string) => {
     if (!window.confirm('Удалить запись о тренировке?')) return
     try { await deleteWorkout(id); setDetail(null); await load() } catch (e) { setError(String(e)) }
@@ -602,6 +603,7 @@ export default function App() {
         <div className="page-heading"><div><p className="eyebrow">{editor === 'program' ? 'КОНСТРУКТОР' : 'АКТИВНАЯ ТРЕНИРОВКА'}</p><h1>{editor === 'program' ? 'Редактор программы' : 'Тренировка'}</h1></div></div>
         <label className="field-label">Название</label>
         <input className="input title-input" value={name} onChange={e => { setName(e.target.value); setDirty(true) }} placeholder="Название"/>
+        {editor === 'session' && <><label className="field-label" htmlFor="session-date">Дата тренировки</label><input id="session-date" className="input" type="date" value={sessionDate} onChange={e=>{setSessionDate(e.target.value);setDirty(true)}}/><p className="osfit-helper">Если дата не выбрана, используется дата завершения. Номер тренировки можно указать в названии.</p></>}
         {editor === 'session' && <><button className="btn secondary full" onClick={savePortable}><Download size={17}/> Экспортировать текущую тренировку</button>{portableInfo&&<p className="osfit-helper">{portableInfo}</p>}</>}
         {editor === 'session' && <div className="card"><div className="exercise-head"><strong>Таймер отдыха</strong><button className="btn secondary compact" onClick={startRest}>Старт {restDuration} с</button></div><strong>{secondsLeft>0?`${Math.floor(secondsLeft/60)}:${String(secondsLeft%60).padStart(2,'0')}`:'Готов'}</strong><button className="tiny-icon" onClick={()=>setRestUntil(0)}>Сброс</button></div>}
         {editor === 'session' && <div className="osfit-inline-actions"><button onClick={undo} disabled={!undoRows.length}>↶ Отменить действие</button><div className="osfit-segmented" role="group" aria-label="Вид тренировки">{(['simple','compact','expanded'] as const).map(v=><button key={v} className={viewMode===v?'active':''} aria-pressed={viewMode===v} onClick={()=>changeViewMode(v)}>{v==='simple'?'Простой':v==='compact'?'Компактный':'Расширенный'}</button>)}</div></div>}

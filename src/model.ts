@@ -24,6 +24,15 @@ export const MAX_1RM_REPS=12
 export const estimate1RM=(weight:number,reps:number)=>weight>0&&reps>=1&&reps<=MAX_1RM_REPS?(reps===1?weight:weight*(1+reps/30)):0
 /** Локальная дата YYYY-MM-DD (а не UTC): иначе в UTC+ тренировки утром попадают на вчера. */
 export const localDay=(d:Date|string|number=new Date())=>{const x=d instanceof Date?d:new Date(d);if(!Number.isFinite(x.getTime()))return '';return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`}
+/** Пустая дата сохраняет прежнее время или время завершения; выбранный день — местный полдень. */
+export const workoutDate=(day:string,original?:string,now:Date=new Date()):string=>{
+ if(!day)return original??now.toISOString()
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(day))throw new Error('Укажите корректную дату тренировки')
+ const date=new Date(`${day}T12:00:00`)
+ if(!Number.isFinite(date.getTime())||localDay(date)!==day)throw new Error('Укажите корректную дату тренировки')
+ if(original&&localDay(original)===day)return original
+ return date.toISOString()
+}
 /** Нормализация названия: регистр и ё→е (чтобы «лёжа» и «лежа» совпадали). */
 export const norm=(v:string)=>v.toLocaleLowerCase('ru').replace(/ё/g,'е').trim()
 /** Только эти точные старые названия означают число блоков, а не килограммы. */
