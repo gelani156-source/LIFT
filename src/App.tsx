@@ -5,7 +5,9 @@ import Dynamics from './Dynamics'
 import MuscleMap from './AnatomyMuscleMap'
 import {store} from './storage'
 import {muscleLoad,exerciseMuscleLoad} from './MuscleMap'
-import {groups, groupFor, suggestions, serializeProgram, readProgramFile, getExerciseAlternative, weeklyMuscleSets, bodyPartPrompt} from './smart'
+import {groups, suggestions, serializeProgram, readProgramFile, getExerciseAlternative, weeklyMuscleSets, bodyPartPrompt} from './smart'
+import {catalogResults, catalogKey, addCatalogAlias} from './catalog'
+import {CATALOG_STORAGE_KEY, readCatalogPreferences, updateCatalogPreferences, type CatalogPreferences} from './catalogStorage'
 
 import {convertIronlog} from './ironlog'
 import {
@@ -248,6 +250,19 @@ export default function App() {
   const [picker, setPicker] = useState(false)
   const [query, setQuery] = useState('')
   const [groupFilter,setGroupFilter]=useState('Все')
+  const [catalogPreferences,setCatalogPreferences]=useState<CatalogPreferences>({version:1,favorites:[],aliases:{}})
+  const {favorites:catalogFavorites,aliases:catalogAliases}=catalogPreferences
+  const [catalogFavoriteOnly,setCatalogFavoriteOnly]=useState(false)
+  useEffect(()=>{
+    const reload=()=>{try{setCatalogPreferences(readCatalogPreferences(window.localStorage))}catch{setError('Не удалось прочитать настройки каталога. Существующие данные не изменены.')}}
+    reload()
+    const sync=(event:StorageEvent)=>{if(event.key===CATALOG_STORAGE_KEY||event.key===null)reload()}
+    window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync)
+  },[])
+  const saveCatalog=(update:(current:CatalogPreferences)=>CatalogPreferences)=>{
+    try{setCatalogPreferences(updateCatalogPreferences(window.localStorage,update))}
+    catch{setError('Не удалось сохранить настройки каталога. Изменение не применено; проверьте доступность и свободное место хранилища.')}
+  }
   const [viewMode,setViewMode]=useState<'simple'|'compact'|'expanded'>(()=>{const v=store.get('osfit-view-mode');return v==='simple'||v==='expanded'||v==='compact'?v:store.get('osfit-compact')==='false'?'expanded':'compact'})
   const compact=viewMode!=='expanded'
   const changeViewMode=(v:'simple'|'compact'|'expanded')=>{setViewMode(v);store.set('osfit-view-mode',v)}
@@ -635,7 +650,10 @@ export default function App() {
         </article>})}
         {picker ? <div className="card picker"><div className="picker-title"><b>Добавить упражнение</b><button className="tiny-icon" onClick={() => setPicker(false)}>×</button></div>
           <div className="search"><Search size={17}/><input autoFocus placeholder="Поиск или своё название" value={query} onChange={e => setQuery(e.target.value)}/></div>
-          <div className="osfit-group-filters">{groups.map(g=><button key={g} className={groupFilter===g?'active':''} onClick={()=>setGroupFilter(g)}>{g}</button>)}</div><div className="catalog osfit-pick-list">{(query.trim() ? Array.from(new Set([query.trim(), ...exerciseCatalog.filter(x => x.toLowerCase().includes(query.trim().toLowerCase()))])) : [...new Set([...exerciseCatalog,...suggestions(groupFilter)])]).filter(x=>groupFilter==='Все'||groupFor(x)===groupFilter||x===query.trim()).slice(0, 80).map(x => <button key={x} onClick={() => addExercise(x)}>{x}<Plus size={15}/></button>)}</div>
+          <div className="osfit-group-filters">{groups.map(g=><button key={g} className={groupFilter===g?'active':''} aria-pressed={groupFilter===g} onClick={()=>setGroupFilter(g)}>{g}</button>)}<button className={catalogFavoriteOnly?'active':''} aria-pressed={catalogFavoriteOnly} onClick={()=>setCatalogFavoriteOnly(v=>!v)}>★ Избранное</button></div>
+          <p className="muted small">Избранное и синонимы сохраняются в этом браузере, но не входят в резервную копию. Рекорд — максимальный вес рабочего подхода.</p>
+          {query.trim()&&!catalogFavoriteOnly&&<button className="btn secondary full" onClick={()=>addExercise(query.trim())}>Добавить своё: {query.trim()}</button>}
+          <div className="osfit-pick-list">{catalogResults(programs,workouts,query,groupFilter,catalogFavorites,catalogFavoriteOnly,catalogAliases).map(item=>{const k=catalogKey(item.name),fav=catalogFavorites.includes(k);return <div key={k} className="osfit-section"><div className="osfit-inline-actions"><button aria-label={`${fav?'Убрать из избранного':'В избранное'}: ${item.name}`} aria-pressed={fav} onClick={()=>saveCatalog(old=>({...old,favorites:old.favorites.includes(k)?old.favorites.filter(x=>x!==k):[...old.favorites,k]}))}>{fav?'★':'☆'}</button><button onClick={()=>addExercise(item.name)}>{exerciseDisplayName(item.name)} <Plus size={15}/></button><button aria-label={`Добавить синоним: ${item.name}`} onClick={()=>{const alias=window.prompt(`Синоним для «${item.name}»`);if(alias)saveCatalog(old=>({...old,aliases:addCatalogAlias(old.aliases,item.name,alias)}))}}>Синоним</button></div><small className="muted">{item.group==='Все'?'Без группы':item.group}{item.latest?` · Последний: ${item.latest}`:''}{item.record?` · Рекорд: ${item.record}`:''}</small></div>})}</div>
         </div> : <button className="btn secondary full" onClick={() => setPicker(true)}><Plus size={18}/> Добавить упражнение</button>}
         <button className="btn primary full save-btn" onClick={() => void saveCurrent()}><Save size={18}/>{editor === 'program' ? 'Сохранить программу' : 'Завершить и сохранить'}</button>
         {editor === 'session' && <p className="small muted center">В подсчёт результатов попадут только отмеченные подходы.</p>}
