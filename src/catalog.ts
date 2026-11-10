@@ -10,12 +10,18 @@ const aliases:Record<string,string[]> = {
   'жим стоя':['армейский жим','overhead press'],
 }
 export type CatalogResult={name:string,group:string,latest?:string,record?:string}
+type CatalogEntry=CatalogResult & {key:string,terms:string[]}
+export type CatalogIndex=CatalogEntry[]
 const key=(name:string)=>norm(name).replace(/\s+/g,' ')
-export function catalogResults(programs:Program[],workouts:Workout[],query='',group='Все',favorites:string[]=[],favoriteOnly=false,customAliases:Record<string,string[]>={}):CatalogResult[]{
+// Preserve the stored identity when a legacy display alias differs from it.
+export function catalogLabel(name:string):string{
+ const display=exerciseDisplayName(name)
+ return display===name?name:`${display} — исходное название: ${name}`
+}
+export function buildCatalogIndex(programs:Program[],workouts:Workout[]):CatalogIndex{
  const names=[...exerciseCatalog,...suggestions('Все'),...programs.flatMap(p=>p.exercises.map(e=>e.name)),...workouts.flatMap(w=>w.exercises.map(e=>e.name))]
  const unique=new Map<string,string>()
  for(const name of names){const n=name.trim();if(n&&!unique.has(key(n)))unique.set(key(n),n)}
- const q=key(query), favoriteKeys=new Set(favorites.map(key))
  const history=new Map<string,{date:number,text:string,kg?:number,record?:string}>()
  for(const w of workouts){const date=Date.parse(w.date);if(!Number.isFinite(date))continue
   for(const e of w.exercises){const k=key(e.name), valid=e.sets.filter(isWorkSet);if(!valid.length)continue
@@ -25,16 +31,20 @@ export function catalogResults(programs:Program[],workouts:Workout[],query='',gr
    for(const s of valid){const kg=weightInKg(e,s.weight);if(entry.kg===undefined||kg>entry.kg){entry.kg=kg;entry.record=`${formatWeight(e,s.weight)} × ${s.reps}`}}
   }
  }
+ return Array.from(unique,([k,name])=>{const entry=history.get(k);return {key:k,name,group:groupFor(name),latest:entry?.text,record:entry?.record,terms:[name,exerciseDisplayName(name),...(Object.hasOwn(aliases,k)?aliases[k]:[])].map(key)}})
+}
+export function filterCatalogIndex(index:CatalogIndex,query='',group='Все',favorites:string[]=[],favoriteOnly=false,customAliases:Record<string,string[]>={}):CatalogResult[]{
+ const q=key(query), favoriteKeys=new Set(favorites.map(key))
  const result:CatalogResult[]=[]
- for(const [k,name] of unique){
-  const g=groupFor(name)
+ for(const {key:k,name,group:g,latest,record,terms} of index){
   if(group!=='Все'&&group!==g||favoriteOnly&&!favoriteKeys.has(k))continue
-  const terms=[name,exerciseDisplayName(name),...(Object.hasOwn(aliases,k)?aliases[k]:[]),...(Object.hasOwn(customAliases,k)?customAliases[k]:[])]
-  if(q&&!terms.some(term=>key(term).includes(q)))continue
-  const entry=history.get(k)
-  result.push({name,group:g,latest:entry?.text,record:entry?.record})
+  if(q&&!terms.some(term=>term.includes(q))&&!(Object.hasOwn(customAliases,k)?customAliases[k]:[]).some(term=>key(term).includes(q)))continue
+  result.push({name,group:g,latest,record})
  }
  return result.sort((a,b)=>Number(favoriteKeys.has(key(b.name)))-Number(favoriteKeys.has(key(a.name)))||a.name.localeCompare(b.name,'ru'))
+}
+export function catalogResults(programs:Program[],workouts:Workout[],query='',group='Все',favorites:string[]=[],favoriteOnly=false,customAliases:Record<string,string[]>={}):CatalogResult[]{
+ return filterCatalogIndex(buildCatalogIndex(programs,workouts),query,group,favorites,favoriteOnly,customAliases)
 }
 export function addCatalogAlias(aliasesByName:Record<string,string[]>,name:string,alias:string):Record<string,string[]>{
  const k=key(name), value=alias.trim();if(!k||!value||k==='__proto__'||k==='constructor'||k==='prototype')return aliasesByName

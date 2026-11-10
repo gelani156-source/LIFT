@@ -1,6 +1,6 @@
 const test=require('node:test'), assert=require('node:assert/strict'), fs=require('node:fs'), path=require('node:path'), ts=require('typescript')
 const cache={};function load(name){if(cache[name])return cache[name].exports;const src=fs.readFileSync(path.join(__dirname,'../src',name+'.ts'),'utf8');const js=ts.transpileModule(src,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;const mod={exports:{}};cache[name]=mod;new Function('require','module','exports',js)(id=>id.startsWith('./')?load(id.slice(2)):require(id),mod,mod.exports);return mod.exports}
-const {catalogResults,addCatalogAlias,catalogKey}=load('catalog')
+const {catalogResults,buildCatalogIndex,filterCatalogIndex,catalogLabel,addCatalogAlias,catalogKey}=load('catalog')
 const set=(weight,reps,done=true,kind='work')=>({id:'s',weight,reps,done,kind})
 const line=(name,sets,weightUnit)=>({id:'e',name,sets,...(weightUnit?{weightUnit}:{})})
 const workout=(date,exercises)=>({id:date,name:'t',date,exercises,programId:null,volume:0})
@@ -18,3 +18,22 @@ test('missing storage defaults to empty; corruption and future versions never ov
 test('storage read or write failures are surfaced, not reported as saved',()=>{assert.throws(()=>readCatalogPreferences({getItem(){throw Error('blocked')}}));assert.throws(()=>updateCatalogPreferences({getItem(){return null},setItem(){throw Error('quota')}},p=>p))})
 test('normalization deduplicates and rejects unsafe dictionary keys',()=>{const s=fakeStorage();s.put('{"version":1,"favorites":["Жим лёжа","жим лежа"],"aliases":{"Жим лёжа":["  Тест ","тест"],"__proto__":["x"]}}');const p=readCatalogPreferences(s);assert.deepEqual(p.favorites,['жим лежа']);assert.deepEqual(p.aliases['жим лежа'],['Тест']);assert.equal(Object.hasOwn(p.aliases,'__proto__'),false);assert.doesNotThrow(()=>catalogResults([{exercises:[line('constructor',[])]}],[]))})
 test('synthetic large history completes and keeps records',()=>{const history=Array.from({length:500},(_,i)=>workout('2024-01-01',Array.from({length:20},(_,j)=>line('Тест '+j,[set(i%100,5)]))));const start=performance.now();const result=catalogResults([],history,'тест');console.log('# synthetic history 500 workouts × 20 exercises: '+Math.round(performance.now()-start)+' ms');assert.equal(result.length,20);assert.equal(result[0].record,'99 кг × 5')})
+
+test('catalog labels distinguish original names while history retains actual units, including explicit overrides',()=>{
+ const w=[workout('2024-01-01',[line('Трицепс',[set(4,8)]),line('Трицепс в кроссовере',[set(7,8)])]),workout('2024-02-01',[line('Трицепс',[set(6,9)],'kg')])]
+ const before=JSON.stringify(w), r=filterCatalogIndex(buildCatalogIndex([],w),'трицепс')
+ const legacy=r.find(x=>x.name==='Трицепс'),full=r.find(x=>x.name==='Трицепс в кроссовере')
+ assert.equal(catalogLabel(legacy.name),'Трицепс в кроссовере — исходное название: Трицепс')
+ assert.equal(catalogLabel(full.name),'Трицепс в кроссовере')
+ assert.equal(legacy.latest,'6 кг × 9');assert.equal(legacy.record,'4 бл. (20 кг) × 8');assert.equal(full.record,'7 кг × 8')
+ assert.equal(JSON.stringify(w),before)
+})
+test('reused index filters without revisiting history and matches original result contract',()=>{
+ let reads=0;const w=[workout('2024-01-01',[line('Трицепс',[set(4,8)]),line('Трицепс в кроссовере',[set(7,8)])])]
+ const expected=catalogResults([],w,'трицепс');const history=new Proxy(w,{get(target,property,receiver){if(property===Symbol.iterator||property==='flatMap')reads++;return Reflect.get(target,property,receiver)}})
+ const index=buildCatalogIndex([],history), afterBuild=reads
+ for(const query of ['т','тр','три','трицепс'])filterCatalogIndex(index,query)
+ assert.equal(reads,afterBuild);assert.deepEqual(filterCatalogIndex(index,'трицепс'),expected)
+ const updated=buildCatalogIndex([],w.concat(workout('2024-02-01',[line('Трицепс',[set(9,8)])])))
+ assert.equal(filterCatalogIndex(updated,'трицепс').find(x=>x.name==='Трицепс').latest,'9 бл. (45 кг) × 8')
+})
