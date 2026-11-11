@@ -20,15 +20,15 @@ const regionFor: Record<Muscle,string[]> = {
 }
 const keys=Object.keys(labels) as Muscle[]
 const fmt=(n:number)=>Number(n||0).toLocaleString('ru-RU',{maximumFractionDigits:1})
-export default function AnatomyMuscleMap({loads,sex='male'}:{loads:Record<Muscle,number>,sex?:'male'|'female'}) {
+export default function AnatomyMuscleMap({loads,sex='male',viewOnly=false}:{loads:Record<Muscle,number>,sex?:'male'|'female',viewOnly?:boolean}) {
  const [side,setSide]=useState<'front'|'back'>('front')
  const [selected,setSelected]=useState<Muscle|null>(null)
  const max=Math.max(1,...Object.values(loads).filter(Number.isFinite))
  const highlights=useMemo(()=>Object.entries(regions).map(([group,ids])=>{
   const amount=ids.reduce((sum,id)=>sum+(Number(loads[id])||0),0)
   const active=selected!==null && regionFor[selected].includes(group)
-  return {group,intensity:active?100:amount>0?Math.max(40,Math.min(90,Math.round(amount/max*90))):0,color:active?'#5ad6ff':'#0a84ff'}
- }).filter(entry=>entry.intensity>0),[loads,max,selected])
+  return {group,intensity:active?100:!viewOnly&&amount>0?Math.max(40,Math.min(90,Math.round(amount/max*90))):0,color:active?'#5ad6ff':'#0a84ff'}
+ }).filter(entry=>entry.intensity>0),[loads,max,selected,viewOnly])
  const choose=(group:string)=>{
   const ids=regions[group]
   if(!ids?.length)return
@@ -37,8 +37,8 @@ export default function AnatomyMuscleMap({loads,sex='male'}:{loads:Record<Muscle
  }
  return <div className="osfit-anatomy osfit-rich-anatomy lift-anatomy-restored">
   <div className="osfit-view-buttons muscle-toolbar" role="group" aria-label="Ракурс атлета">
-   <button type="button" className={side==='front'?'active':''} onClick={()=>setSide('front')}>Спереди</button>
-   <button type="button" className={side==='back'?'active':''} onClick={()=>setSide('back')}>Сзади</button>
+   <button type="button" aria-pressed={side==='front'} className={side==='front'?'active':''} onClick={()=>setSide('front')}>Спереди</button>
+   <button type="button" aria-pressed={side==='back'} className={side==='back'?'active':''} onClick={()=>setSide('back')}>Сзади</button>
    <span className="muted small">{sex==='female'?'Женская модель':'Мужская модель'}</span>
   </div>
   <p className="osfit-anatomy-hint">Нажми на мышцу для подробностей</p>
@@ -48,12 +48,12 @@ export default function AnatomyMuscleMap({loads,sex='male'}:{loads:Record<Muscle
     onMuscleClick={(muscle:{group:string})=>choose(muscle.group)}/>
   </div>
   <div className="muscle-caption" aria-live="polite">
-   {selected?`${labels[selected]} · ${fmt(Number(loads[selected]))} усл. подходов`:'Выбери мышцу на фигуре или в списке'}
+   {selected?`${labels[selected]}${viewOnly?'':` · ${fmt(Number(loads[selected]))} усл. подходов`}`:'Выбери мышцу на фигуре или в списке'}
   </div>
   <div className="muscle-legend">
-   {keys.map(id=><button key={id} type="button" className={selected===id?'active':''}
+   {keys.map(id=><button key={id} type="button" aria-pressed={selected===id} className={selected===id?'active':''}
      onClick={()=>{setSelected(prev=>prev===id?null:id);if(['back','traps','glutes','hamstrings'].includes(id))setSide('back');else setSide('front')}}>
-     <span>{labels[id]}</span><b>{fmt(Number(loads[id]))}</b>
+     <span>{labels[id]}</span>{!viewOnly&&<b>{fmt(Number(loads[id]))}</b>}
     </button>)}
   </div>
   <p className="muted small">Модель: js-rich-body-highlighter (MIT). Подсветка — условная нагрузка, не измерение активности мышц.</p>

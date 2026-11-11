@@ -19,3 +19,7 @@
 .lift-anatomy-restored .muscle-legend button.active{border-color:#0a84ff;background:rgba(10,132,255,.18)}
 .lift-anatomy-restored .muscle-caption{text-align:center;margin-top:10px}
 @media(max-width:420px){.lift-anatomy-restored .muscle-legend{grid-template-columns:1fr 1fr}.lift-anatomy-restored .muscle-legend button{font-size:12px;padding:9px 6px}}
+
+.lift-anatomy-restored .muscle-legend button,.muscle-toolbar button{min-height:44px}
+.lift-anatomy-restored button:focus-visible,.muscle-toolbar button:focus-visible{outline:3px solid #5ad6ff;outline-offset:2px}
+.lift-anatomy-comparison p{margin:6px 0}

@@ -3,8 +3,9 @@ import {ThemeToggle} from './ThemeToggle'
 import WorkoutMiniWidget from './WorkoutMiniWidget'
 import Dynamics from './Dynamics'
 import MuscleMap from './AnatomyMuscleMap'
+import AnatomyExplorer from './AnatomyExplorer'
 import {store} from './storage'
-import {muscleLoad,exerciseMuscleLoad} from './MuscleMap'
+import {exerciseMuscleLoad} from './MuscleMap'
 import {groups, suggestions, serializeProgram, readProgramFile, getExerciseAlternative, weeklyMuscleSets, bodyPartPrompt} from './smart'
 import {buildCatalogIndex, filterCatalogIndex, catalogLabel, catalogKey, addCatalogAlias} from './catalog'
 import {CATALOG_STORAGE_KEY, readCatalogPreferences, updateCatalogPreferences, type CatalogPreferences} from './catalogStorage'
@@ -709,8 +710,7 @@ export default function App() {
       </section> : tab === 'muscles' ? <section>
         <p className="eyebrow">АНАТОМИЯ НАГРУЗКИ</p><h1>Атлет и мышцы</h1>
         <div className="osfit-period-pills" role="group" aria-label="Период подсветки мышц">{[7,30,90,365].map(n=><button type="button" aria-pressed={musclePeriod===n} className={musclePeriod===n?'selected':''} key={n} onClick={()=>{setMusclePeriod(n);store.set('osfit-muscle-period',String(n))}}>{n===7?'7 дней':n===30?'30 дней':n===90?'90 дней':'1 год'}</button>)}</div>
-        <p className="muted small">Нагрузка за {musclePeriod} дней · {workouts.filter(w=>{const t=Date.parse(w.date);return Number.isFinite(t)&&t>=Date.now()-musclePeriod*86400000&&t<=Date.now()+86400000}).length} тренировок</p>
-        <MuscleMap key={'period-'+musclePeriod} sex={profile.sex} loads={muscleLoad(workouts.filter(w=>{const t=Date.parse(w.date);return Number.isFinite(t)&&t>=Date.now()-musclePeriod*86400000&&t<=Date.now()+86400000}))}/>
+        <AnatomyExplorer workouts={workouts} days={musclePeriod} sex={profile.sex}/>
         <h2>Мышцы текущей тренировки</h2><MuscleMap sex={profile.sex} loads={activeMuscles}/>
       </section> : <section>
         <Dynamics workouts={workouts} measurements={measurements} sex={profile.sex} goals={goals}/>
