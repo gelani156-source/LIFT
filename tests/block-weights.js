@@ -12,7 +12,7 @@
   const sources={},cache={};let hookValues=[],hookIndex=0
   const element=(type,props)=>({type,props:props||{}})
   const modules={react:{useState:initial=>[hookIndex<hookValues.length?hookValues[hookIndex++]:typeof initial==='function'?initial():initial,()=>{}],useMemo:fn=>fn()},'react/jsx-runtime':{jsx:element,jsxs:element,Fragment:Symbol('Fragment')},'./AnatomyMuscleMap':{default:()=>null}}
-  for(const name of ['model','storage','db','smart','ironlog','MuscleMap','Dynamics']){
+  for(const name of ['model','storage','db','smart','ironlog','MuscleMap','localCoach','Dynamics']){
    const ext=['MuscleMap','Dynamics'].includes(name)?'tsx':'ts'
    const response=await fetch(`../src/${name}.${ext}?test=${Date.now()}`,{cache:'no-store'})
    if(!response.ok)throw new Error(`Cannot read ${name}: ${response.status}`)

@@ -3,6 +3,7 @@ import {calculateAchievements} from './achievements'
 import {ThemeToggle} from './ThemeToggle'
 import WorkoutMiniWidget from './WorkoutMiniWidget'
 import Dynamics from './Dynamics'
+import ExerciseCard from './ExerciseCard'
 import MuscleMap from './AnatomyMuscleMap'
 import AnatomyExplorer from './AnatomyExplorer'
 import {store} from './storage'
@@ -254,6 +255,7 @@ export default function App() {
   const [activeProgramId, setActiveProgramId] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
   const [picker, setPicker] = useState(false)
+  const [exerciseCard, setExerciseCard] = useState<string|null>(null)
   const [query, setQuery] = useState('')
   const [groupFilter,setGroupFilter]=useState('Все')
   const [catalogPreferences,setCatalogPreferences]=useState<CatalogPreferences>({version:1,favorites:[],aliases:{}})
@@ -670,7 +672,8 @@ export default function App() {
           <div className="osfit-group-filters">{groups.map(g=><button key={g} className={groupFilter===g?'active':''} aria-pressed={groupFilter===g} onClick={()=>setGroupFilter(g)}>{g}</button>)}<button className={catalogFavoriteOnly?'active':''} aria-pressed={catalogFavoriteOnly} onClick={()=>setCatalogFavoriteOnly(v=>!v)}>★ Избранное</button></div>
           <p className="muted small">Избранное и синонимы сохраняются в этом браузере, но не входят в резервную копию. Рекорд — максимальный вес рабочего подхода.</p>
           {query.trim()&&!catalogFavoriteOnly&&<button className="btn secondary full" onClick={()=>addExercise(query.trim())}>Добавить своё: {query.trim()}</button>}
-          <div className="osfit-pick-list">{filterCatalogIndex(catalogIndex,query,groupFilter,catalogFavorites,catalogFavoriteOnly,catalogAliases).map(item=>{const k=catalogKey(item.name),fav=catalogFavorites.includes(k);return <div key={k} className="osfit-section"><div className="osfit-inline-actions"><button aria-label={`${fav?'Убрать из избранного':'В избранное'}: ${item.name}`} aria-pressed={fav} onClick={()=>saveCatalog(old=>({...old,favorites:old.favorites.includes(k)?old.favorites.filter(x=>x!==k):[...old.favorites,k]}))}>{fav?'★':'☆'}</button><button onClick={()=>addExercise(item.name)}>{catalogLabel(item.name)} <Plus size={15}/></button><button aria-label={`Добавить синоним: ${item.name}`} onClick={()=>{const alias=window.prompt(`Синоним для «${item.name}»`);if(alias)saveCatalog(old=>({...old,aliases:addCatalogAlias(old.aliases,item.name,alias)}))}}>Синоним</button></div><small className="muted">{item.group==='Все'?'Без группы':item.group} · При добавлении: {weightUnitOf({name:item.name})==='blocks'?'блоки × 5 кг':'кг'}{item.latest?` · Последний: ${item.latest}`:''}{item.record?` · Рекорд: ${item.record}`:''}</small></div>})}</div>
+          {exerciseCard&&<ExerciseCard name={exerciseCard} workouts={workouts} onClose={()=>setExerciseCard(null)}/>}
+          <div className="osfit-pick-list">{filterCatalogIndex(catalogIndex,query,groupFilter,catalogFavorites,catalogFavoriteOnly,catalogAliases).map(item=>{const k=catalogKey(item.name),fav=catalogFavorites.includes(k);return <div key={k} className="osfit-section"><div className="osfit-inline-actions"><button aria-label={`${fav?'Убрать из избранного':'В избранное'}: ${item.name}`} aria-pressed={fav} onClick={()=>saveCatalog(old=>({...old,favorites:old.favorites.includes(k)?old.favorites.filter(x=>x!==k):[...old.favorites,k]}))}>{fav?'★':'☆'}</button><button onClick={()=>addExercise(item.name)}>{catalogLabel(item.name)} <Plus size={15}/></button><button type="button" aria-label={`Карточка: ${item.name}`} onClick={()=>setExerciseCard(item.name)}>Карточка</button><button aria-label={`Добавить синоним: ${item.name}`} onClick={()=>{const alias=window.prompt(`Синоним для «${item.name}»`);if(alias)saveCatalog(old=>({...old,aliases:addCatalogAlias(old.aliases,item.name,alias)}))}}>Синоним</button></div><small className="muted">{item.group==='Все'?'Без группы':item.group} · При добавлении: {weightUnitOf({name:item.name})==='blocks'?'блоки × 5 кг':'кг'}{item.latest?` · Последний: ${item.latest}`:''}{item.record?` · Рекорд: ${item.record}`:''}</small></div>})}</div>
         </div> : <button className="btn secondary full" onClick={() => setPicker(true)}><Plus size={18}/> Добавить упражнение</button>}
         <button className="btn primary full save-btn" onClick={() => void saveCurrent()}><Save size={18}/>{editor === 'program' ? 'Сохранить программу' : 'Завершить и сохранить'}</button>
         {editor === 'session' && <p className="small muted center">В подсчёт результатов попадут только отмеченные подходы.</p>}
