@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {calculateAchievements} from './achievements'
 import {ThemeToggle} from './ThemeToggle'
 import WorkoutMiniWidget from './WorkoutMiniWidget'
 import Dynamics from './Dynamics'
@@ -234,6 +235,9 @@ export default function App() {
   const [editor, setEditor] = useState<Editor>(null)
   const [programs, setPrograms] = useState<Program[]>([])
   const [workouts, setWorkouts] = useState<Workout[]>([])
+  const [achievementsEnabled, setAchievementsEnabled] = useState(() => {try{return window.localStorage.getItem('lift-achievements-enabled') === 'true'}catch{return false}})
+  const toggleAchievements = (enabled: boolean) => {try{window.localStorage.setItem('lift-achievements-enabled', String(enabled));setAchievementsEnabled(enabled)}catch{setError('Не удалось сохранить настройку достижений. Изменение не применено.')}}
+  const achievements = achievementsEnabled ? calculateAchievements(workouts) : null
   const catalogIndex=useMemo(()=>buildCatalogIndex(programs,workouts),[programs,workouts])
   const [measurements, setMeasurements] = useState<Measurement[]>([])
   const [bodyForm, setBodyForm] = useState({date:localDay(),weight:'',waist:'',chest:'',arm:'',thigh:'',hips:'',neck:'',note:''})
@@ -563,6 +567,17 @@ export default function App() {
         <button className="back" onClick={() => setSettings(false)}><ArrowLeft size={17}/> Назад</button>
         <h1>Настройки и данные</h1>
         <div className="osfit-settings-row"><ThemeToggle/></div>
+        <section className="osfit-section" aria-labelledby="achievements-title">
+          <h2 id="achievements-title">Достижения и уровни</h2>
+          <label className="field-label"><input type="checkbox" checked={achievementsEnabled} onChange={e=>toggleAchievements(e.target.checked)}/> Показывать достижения и уровни</label>
+          <p className="muted small">Необязательно. Отдых важен; уровни не оценивают здоровье и не требуют тренироваться чаще или увеличивать вес.</p>
+          {achievements && <>
+            <p><strong>Уровень {achievements.level} из 5</strong> · зачтено дней: {achievements.days}</p>
+            <ul>{achievements.badges.map(b=><li key={b.target}>{b.earned?'Получено':'Пока не получено'}: {b.target} {b.target===1?'день':'дней'} с тренировкой</li>)}</ul>
+            <p className="muted small">Правила: за календарный день в местном часовом поясе — не более одного зачёта. В сохранённой тренировке нужен именованный элемент и выполненный неразминочный подход с конечным весом ≥ 0 и положительными повторениями. Будущие и некорректные даты, пустые записи и конфликтующие ID исключаются. Повторные записи в один день не добавляют зачёт. Вес и тоннаж не влияют на уровень.</p>
+            <p className="muted small">Это пересчёт текущей истории, а не награды навсегда: исправление, удаление или смена часового пояса может изменить результат. Копии с разными ID и датами автоматически не распознать. Никакие тренировки не изменяются; настройка остаётся только в этом браузере и не входит в архив.</p>
+          </>}
+        </section>
         <div className="osfit-goals-panel">
           <h2>Силовые цели</h2><p className="muted small">Несколько целей по любым упражнениям. Достижение проверяется по выполненным рабочим подходам; цели остаются до выполнения или удаления.</p>
           <div className="osfit-segmented"><button className={!goalArchive?'active':''} onClick={()=>setGoalArchive(false)}>Активные ({goals.filter(g=>!g.completedAt).length})</button><button className={goalArchive?'active':''} onClick={()=>setGoalArchive(true)}>Достигнутые ({goals.filter(g=>g.completedAt).length})</button></div>
