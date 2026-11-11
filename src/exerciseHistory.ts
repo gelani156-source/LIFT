@@ -1,11 +1,12 @@
 import {catalogKey} from './catalog'
+import {parseWorkoutDate} from './parseWorkoutDate'
 import {estimate1RM, isWorkSet, localDay, weightInKg, type Workout, type ExerciseLine, type SetLine} from './model'
 
 export type ExerciseSession={id:string,date:string,sets:{line:ExerciseLine,set:SetLine}[],best:number}
 export function exerciseHistory(workouts:Workout[],name:string):ExerciseSession[]{
  const result:ExerciseSession[]=[]
  for(const w of workouts){
-  if(!Number.isFinite(Date.parse(w.date)))continue
+  if(!Number.isFinite(parseWorkoutDate(w.date)))continue
   const sets=w.exercises.filter(e=>catalogKey(e.name)===catalogKey(name)).flatMap(line=>line.sets.filter(isWorkSet).map(set=>({line,set})))
   if(!sets.length)continue
   result.push({id:w.id,date:w.date,sets,best:Math.max(0,...sets.map(({line,set})=>estimate1RM(weightInKg(line,set.weight),set.reps)))})

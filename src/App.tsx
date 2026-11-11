@@ -256,6 +256,7 @@ export default function App() {
   const [dirty, setDirty] = useState(false)
   const [picker, setPicker] = useState(false)
   const [exerciseCard, setExerciseCard] = useState<string|null>(null)
+  const closePicker = () => { setPicker(false); setExerciseCard(null) }
   const [query, setQuery] = useState('')
   const [groupFilter,setGroupFilter]=useState('Все')
   const [catalogPreferences,setCatalogPreferences]=useState<CatalogPreferences>({version:1,favorites:[],aliases:{}})
@@ -346,7 +347,7 @@ export default function App() {
       setDraft(true)
       setDirty(false)
       setEditor(null)
-      setPicker(false)
+      closePicker()
       tell('Тренировка сохранена. Продолжить можно на главной.')
     } catch (e) { setError('Не удалось сохранить черновик: '+String(e)) }
   }
@@ -388,12 +389,12 @@ export default function App() {
         setDraft(true)
         setDirty(false)
         setEditor(null)
-        setPicker(false)
+        closePicker()
         return true
       } catch (e) { setError('Не удалось сохранить тренировку: '+String(e)); return false }
     }
     if (dirty && !window.confirm('Есть несохранённые изменения. Выйти без сохранения?')) return false
-    setEditor(null); setDirty(false); setPicker(false)
+    setEditor(null); setDirty(false); closePicker()
     return true
   }
   const switchTab = (next: Tab) => {
@@ -436,7 +437,7 @@ export default function App() {
     changeRow(i, r => ({ ...r, sets: r.sets.map((s, k) => k === j ? { ...s, ...patch } : s) }))
   }
   const addExercise = (exercise: string) => {
-    setUndoRows(old=>[...old.slice(-9),structuredClone(rows)]);setRows(old => [...old, newLine(exercise)]); setDirty(true); setPicker(false); setQuery('')
+    setUndoRows(old=>[...old.slice(-9),structuredClone(rows)]);setRows(old => [...old, newLine(exercise)]); setDirty(true); closePicker(); setQuery('')
   }
   const saveCurrent = async () => {
     try {
@@ -466,7 +467,7 @@ export default function App() {
         setPersonalRecord(null)
         tell('Тренировка сохранена')
       }
-      await load(); if(editor==='session')store.remove('osfit-session-draft'); setEditor(null); setEditingWorkoutId(null); setDirty(false);setRestUntil(0)
+      await load(); if(editor==='session')store.remove('osfit-session-draft'); setEditor(null); closePicker(); setEditingWorkoutId(null); setDirty(false);setRestUntil(0)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
   }
   const removeP = async (id: string) => {
@@ -667,7 +668,7 @@ export default function App() {
           <button className="add-set" onClick={() => changeRow(i, x => ({ ...x, sets: [...x.sets, {...(x.sets.at(-1)||blankSet()),id:uid(),done:false}] }))}><Plus size={16}/> Добавить подход</button>
           </>}
         </article>})}
-        {picker ? <div className="card picker"><div className="picker-title"><b>Добавить упражнение</b><button className="tiny-icon" onClick={() => setPicker(false)}>×</button></div>
+        {picker ? <div className="card picker"><div className="picker-title"><b>Добавить упражнение</b><button className="tiny-icon" onClick={() => closePicker()}>×</button></div>
           <div className="search"><Search size={17}/><input autoFocus placeholder="Поиск или своё название" value={query} onChange={e => setQuery(e.target.value)}/></div>
           <div className="osfit-group-filters">{groups.map(g=><button key={g} className={groupFilter===g?'active':''} aria-pressed={groupFilter===g} onClick={()=>setGroupFilter(g)}>{g}</button>)}<button className={catalogFavoriteOnly?'active':''} aria-pressed={catalogFavoriteOnly} onClick={()=>setCatalogFavoriteOnly(v=>!v)}>★ Избранное</button></div>
           <p className="muted small">Избранное и синонимы сохраняются в этом браузере, но не входят в резервную копию. Рекорд — максимальный вес рабочего подхода.</p>
