@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {calculateAchievements} from './achievements'
+import {CharacterCard, CharacterScreen} from './Character'
 import {ThemeToggle} from './ThemeToggle'
 import WorkoutMiniWidget from './WorkoutMiniWidget'
 import Dynamics from './Dynamics'
@@ -107,7 +108,7 @@ function fromPortableJson(data:unknown):ExerciseLine[]{
 // Черновик из localStorage может быть повреждён (старая версия, ручная правка): чистим структуру, чтобы не уронить интерфейс.
 type Draft={name:string,rows:ExerciseLine[],activeProgramId:string|null,editingWorkoutId:string|null,sessionDate:string}
 const readDraft=():Draft|null=>{try{const raw=JSON.parse(store.get('osfit-session-draft')||'null') as Record<string,unknown>|null;if(!raw||typeof raw!=='object'||!Array.isArray(raw.rows))return null;return {name:typeof raw.name==='string'?raw.name:'Тренировка',rows:cleanExercises(raw.rows),activeProgramId:typeof raw.activeProgramId==='string'?raw.activeProgramId:null,editingWorkoutId:typeof raw.editingWorkoutId==='string'?raw.editingWorkoutId:null,sessionDate:typeof raw.sessionDate==='string'?raw.sessionDate:''}}catch{return null}}
-type Tab = 'train' | 'history' | 'progress' | 'calendar' | 'body' | 'muscles'
+type Tab = 'train' | 'history' | 'progress' | 'calendar' | 'body' | 'muscles' | 'character'
 type Editor = 'program' | 'session' | null
 const formatDate = (s: string) => new Date(s).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' })
 const fmt = (n: number) => n.toLocaleString('ru-RU', { maximumFractionDigits: 1 })
@@ -685,8 +686,9 @@ export default function App() {
         {detail.exercises.map(r => <div className="card" key={r.id}><strong>{exerciseDisplayName(r.name)}</strong>{r.sets.filter(s => s.done).map((s, i) => <p className="muted small" key={s.id}>{i + 1}. {formatWeight(r,s.weight)} × {s.reps} · 1ПМ ≈ {fmt(estimate1RM(weightInKg(r,s.weight), s.reps))} кг</p>)}</div>)}
         <button className="btn secondary full" onClick={() => editWorkout(detail)}><PenLine size={17}/> Редактировать тренировку</button>
         <button className="btn danger full" onClick={() => void removeW(detail.id)}><Trash2 size={17}/> Удалить запись</button>
-      </section> : tab === 'train' ? <section>
+      </section> : tab === 'character' ? <CharacterScreen achievements={achievements} onBack={()=>switchTab('train')} onSettings={()=>setSettings(true)}/> : tab === 'train' ? <section>
         <div className="page-heading"><div><p className="eyebrow">ВАШИ ТРЕНИРОВКИ</p><h1>Мои программы</h1></div><button className="btn primary compact" onClick={() => beginProgram()}><Plus size={17}/> Создать</button></div>
+        <CharacterCard achievements={achievements} onOpen={()=>switchTab('character')}/>
         {draft&&<button className="btn primary full" onClick={restoreDraft}>Продолжить незавершённую тренировку</button>}
         <button className="btn secondary full" onClick={() => setShowTemplates(v=>!v)}><Dumbbell size={17}/> Готовые системы тренировок</button>
         {backupAt&&<p className="osfit-helper">Последняя резервная копия: {new Date(backupAt).toLocaleDateString('ru-RU')}</p>}
