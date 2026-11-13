@@ -10,6 +10,7 @@ const fmt=(n:number)=>n.toLocaleString('ru-RU',{maximumFractionDigits:2})
 export default function AnatomyExplorer({workouts,days,sex}:{workouts:Workout[],days:number,sex:'male'|'female'}) {
  const [mode,setMode]=useState<Mode>('load')
  const data=useMemo(()=>anatomyPeriods(workouts,days),[workouts,days])
+ const exercises=useMemo(()=>data.current.flatMap(workout=>workout.exercises),[data.current])
  const keys=Object.keys(labels) as Muscle[]
  return <div>
   <div className="osfit-view-buttons muscle-toolbar" role="group" aria-label="Режим анатомии">
@@ -17,7 +18,7 @@ export default function AnatomyExplorer({workouts,days,sex}:{workouts:Workout[],
   </div>
   <p className="muted small">Последние {days} суток: {data.current.length} тренировок{mode==='compare'?`; предыдущие ${days} суток: ${data.previous.length} тренировок`:''}. Интервалы скользящие, без будущих дат.</p>
   {mode==='compare'&&<p className="muted small">Предыдущий → текущий период · условные подходы. Ноль означает отсутствие учтённой нагрузки, не обязательно отсутствие тренировки.</p>}
-  <AnatomyMuscleMap loads={data.currentLoad} sex={sex} viewOnly={mode==='view'}/>
+  <AnatomyMuscleMap loads={data.currentLoad} sex={sex} viewOnly={mode==='view'} exercises={exercises} scope={`Последние ${days} суток · текущий период`}/>
   {mode==='compare'&&<div className="lift-anatomy-comparison"><h2>Сравнение по группам</h2>{keys.map(id=>{const a=data.previousLoad[id], b=data.currentLoad[id], delta=b-a;return <p key={id}>{labels[id]}: {fmt(a)} → {fmt(b)} ({delta>0?'+':''}{fmt(delta)})</p>})}</div>}
   <p className="muted small">Учтены выполненные рабочие подходы с корректным весом и повторами, включая вес 0; разминка исключена. Доли мышц по названию упражнения приблизительны; неизвестные упражнения могут не учитываться. Это не измерение активности мышц.</p>
  </div>

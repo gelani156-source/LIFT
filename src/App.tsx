@@ -732,7 +732,7 @@ export default function App() {
         <p className="eyebrow">АНАТОМИЯ НАГРУЗКИ</p><h1>Атлет и мышцы</h1>
         <div className="osfit-period-pills" role="group" aria-label="Период подсветки мышц">{[7,30,90,365].map(n=><button type="button" aria-pressed={musclePeriod===n} className={musclePeriod===n?'selected':''} key={n} onClick={()=>{setMusclePeriod(n);store.set('osfit-muscle-period',String(n))}}>{n===7?'7 дней':n===30?'30 дней':n===90?'90 дней':'1 год'}</button>)}</div>
         <AnatomyExplorer workouts={workouts} days={musclePeriod} sex={profile.sex}/>
-        <h2>Мышцы текущей тренировки</h2><MuscleMap sex={profile.sex} loads={activeMuscles}/>
+        <h2>Мышцы текущей тренировки</h2><MuscleMap sex={profile.sex} loads={activeMuscles} exercises={rows} scope="Текущая тренировка"/>
       </section> : <section>
         <Dynamics workouts={workouts} measurements={measurements} sex={profile.sex} goals={goals}/>
       </section>}

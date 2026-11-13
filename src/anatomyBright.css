@@ -23,3 +23,18 @@
 .lift-anatomy-restored .muscle-legend button,.muscle-toolbar button{min-height:44px}
 .lift-anatomy-restored button:focus-visible,.muscle-toolbar button:focus-visible{outline:3px solid #5ad6ff;outline-offset:2px}
 .lift-anatomy-comparison p{margin:6px 0}
+
+/* Native modal: focus containment, Escape, and focus return are handled by the browser. */
+.lift-muscle-details{position:fixed;inset:auto 0 0;margin:0 auto;box-sizing:border-box;width:100%;max-width:680px;max-height:85dvh;padding:0;border:1px solid var(--border,#38383a);border-bottom:0;border-radius:22px 22px 0 0;background:var(--surface,#1c1c1e);color:var(--text,#f5f5f7);overflow:auto;overscroll-behavior:contain;text-align:left;box-shadow:0 -8px 40px #0005}
+.lift-muscle-details::backdrop{background:#0009}
+.lift-muscle-details-header{position:sticky;top:0;z-index:1;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 18px 12px;background:var(--surface,#1c1c1e);border-bottom:1px solid var(--border,#38383a)}
+.lift-muscle-details-header>div{min-width:0}
+.lift-muscle-details h2{margin:4px 0 0;font-size:21px;overflow-wrap:anywhere}
+.lift-muscle-details-eyebrow{margin:0;font-size:12px;color:var(--muted,#98989d)}
+.lift-muscle-details-close{flex:none;width:44px;height:44px;border:1px solid var(--border,#38383a);border-radius:50%;background:var(--surface-2,#2c2c2e);color:inherit;font-size:26px;cursor:pointer}
+.lift-muscle-details-body{padding:0 18px max(18px,env(safe-area-inset-bottom));font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.lift-muscle-contributions{list-style:none;padding:0;margin:16px 0}
+.lift-muscle-contributions li{padding:13px 0;border-bottom:1px solid var(--border,#38383a)}
+.lift-muscle-contributions p{margin:5px 0 0;font-size:13px}
+.lift-muscle-details-note{font-size:12px;color:var(--muted,#98989d)}
+.lift-muscle-details-empty{padding:18px 0}
