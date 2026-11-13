@@ -32,3 +32,29 @@ test('отсутствующие данные не получают титул; 
     assert.ok(html.includes('Настройки достижений')); assert.ok(html.includes('Достижения регулярности выключены'))
   }
 })
+
+test('персонаж соответствует каждому уровню и не подменяет неизвестный уровень', () => {
+  const {StrengthCharacter, STRENGTH_TITLES} = loadCharacter(false)
+  const animals = ['🐭','🐿️','🦊',null,'🐺',null,'🐻','🐯','🐘','🐉']
+  for (const mode of ['animal','classic']) for (let level=1; level<=10; level++) {
+    const html = renderToStaticMarkup(React.createElement(StrengthCharacter,{level,mode}))
+    assert.ok(html.includes(`${STRENGTH_TITLES[mode][level-1]}, игровой уровень ${level} из 10`))
+    if (mode === 'animal' && animals[level-1]) assert.ok(html.includes(animals[level-1]))
+    if (mode === 'animal' && (level === 4 || level === 6)) assert.ok(html.includes('<svg'))
+    if (mode === 'classic') assert.ok(html.includes(`>${level}</text>`))
+  }
+  for (const mode of ['animal','classic']) for (const level of [null,0,11]) {
+    const html = renderToStaticMarkup(React.createElement(StrengthCharacter,{level,mode}))
+    assert.ok(html.includes('Персонаж появится')); assert.ok(!html.includes('role="img"'))
+  }
+})
+
+test('экран показывает персонажа по общему уровню, а не по отдельному упражнению', () => {
+  for (const [mode, label] of [[false,'Животное: Мышь'],[true,'Герой: Новичок']]) {
+    const {CharacterScreen} = loadCharacter(mode)
+    const html = renderToStaticMarkup(React.createElement(CharacterScreen, props))
+    assert.ok(html.includes(label)); assert.equal((html.match(/role="img"/g) || []).length,1)
+    const empty = renderToStaticMarkup(React.createElement(CharacterScreen, {...props,workouts:[],measurements:[]}))
+    assert.ok(empty.includes('Персонаж появится')); assert.ok(!empty.includes('role="img"'))
+  }
+})

@@ -58,3 +58,7 @@
 .character-screen-card .strength-overall strong{color:var(--ios-accent,#96e7b3);font-size:22px}
 .character-screen-card .strength-grid{gap:10px}
 .character-screen-card .strength-lift{border-left:3px solid var(--ios-accent,#96e7b3)}
+
+/* Персонаж отражает общий игровой уровень, а не оценку здоровья. */
+.strength-character{display:grid;place-items:center;align-self:center;width:112px;height:112px;margin:2px auto 8px;border-radius:50%;background:var(--ios-bg,#111820);border:1px solid var(--ios-line,#34404b)}
+.strength-character-art{width:94px;height:94px}.strength-character-emoji{font-size:68px!important;line-height:1;color:inherit!important}.strength-character-empty span{font-size:52px!important;color:var(--ios-muted,#aab5bd)!important}
