@@ -5,7 +5,7 @@ export type Workout={id:string,name:string,programId:string|null,date:string,exe
 export type Measurement={id:string,date:string,weight?:number,waist?:number,chest?:number,arm?:number,thigh?:number,hips?:number,neck?:number,note?:string}
 export type Schedule={id:string,date:string,programId:string,repeatDays?:number,status?:'planned'|'skipped'}
 export type Profile={sex:'male'|'female',height:number,birthDate:string,goal:string,weightStep:number,autoProgress:boolean}
-export type Backup={format:'osfit-backup',version:number,exportedAt:string,programs:Program[],workouts:Workout[],measurements?:Measurement[],schedule?:Schedule[],profile?:Profile}
+export type Backup={format:'osfit-backup',version:number,exportedAt:string,programs:Program[],workouts:Workout[],measurements?:Measurement[],schedule?:Schedule[],profile?:Profile,strengthSettings?:import('./strengthSettings').StrengthSettings}
 export const uid=():string=>{
  try{if(typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function')return crypto.randomUUID()}catch{/* insecure context */}
  const b=new Uint8Array(16);if(typeof crypto!=='undefined'&&crypto.getRandomValues)crypto.getRandomValues(b);else for(let i=0;i<16;i++)b[i]=Math.floor(Math.random()*256)

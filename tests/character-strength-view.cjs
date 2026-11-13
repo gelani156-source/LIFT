@@ -7,7 +7,7 @@ function loadCharacter(mode) {
     const file = path.join(__dirname, '../src', name + (name === 'Character' ? '.tsx' : '.ts'))
     const js = ts.transpileModule(fs.readFileSync(file, 'utf8'), {compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX}}).outputText
     const mod = {exports:{}}; cache[name] = mod
-    new Function('require','module','exports',js)(id => id === 'react' ? {...React, useState: () => [mode, () => {}]} : id.startsWith('./') ? load(id.slice(2)) : require(id), mod, mod.exports)
+    new Function('require','module','exports',js)(id => id === 'react' ? {...React, useState: initial => typeof initial === 'boolean' ? [mode, () => {}] : React.useState(initial)} : id.startsWith('./') ? load(id.slice(2)) : require(id), mod, mod.exports)
     return mod.exports
   }
   return load('Character')

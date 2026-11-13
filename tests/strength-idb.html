@@ -1,0 +1,28 @@
+<!doctype html><meta charset="utf-8"><title>Isolated synthetic storage test</title><pre id="result">running</pre><script type="module">
+import {loadStrengthSettings,writeStrengthSettings,exportBackup,importBackup,saveWorkout} from '../src/db.ts';
+import {STRENGTH_STORAGE_KEY,emptyStrengthSettings} from '../src/strengthSettings.ts';
+const checks=[]; function check(ok,label){if(!ok)throw Error(label);checks.push(label)}
+async function rejects(fn,label){let failed=false;try{await fn()}catch{failed=true}check(failed,label)}
+try {
+ if(!indexedDB.databases)throw Error('Cannot verify isolation; use a fresh dedicated origin');
+ if((await indexedDB.databases()).some(x=>x.name==='osfit-db')||localStorage.getItem(STRENGTH_STORAGE_KEY)!==null)throw Error('Origin is not empty; test refused');
+ const legacy=emptyStrengthSettings();legacy.manual[0]={date:'2020-01-01',weight:42,reps:5};localStorage.setItem(STRENGTH_STORAGE_KEY,JSON.stringify(legacy));
+ const a=await loadStrengthSettings(),b=await loadStrengthSettings();check(a.data.manual[0].weight===42,'legacy copied');check(localStorage.getItem(STRENGTH_STORAGE_KEY)===JSON.stringify(legacy),'legacy retained');
+ const changed=structuredClone(a.data);changed.manual[0].weight=51;
+ const settled=await Promise.allSettled([writeStrengthSettings(a,changed),writeStrengthSettings(b,changed)]);check(settled.filter(x=>x.status==='fulfilled').length===1,'concurrent compare-and-swap');
+ const before=await exportBackup();check(before.version===4&&before.strengthSettings.manual[0].weight===51,'v4 export');
+ await saveWorkout({id:'synthetic',name:'synthetic',programId:null,date:'2020-01-01',exercises:[],volume:0});
+ const malformed={...before,strengthSettings:{version:99}};await rejects(()=>importBackup(malformed),'invalid v4 rejected');check((await exportBackup()).workouts.length===1,'invalid restore preserves history');
+ const current=await exportBackup();
+ for(const [label,patch] of [
+  ['null workout',{workouts:[null]}],['array workout',{workouts:[[]]}],
+  ['invalid exercises',{workouts:[{exercises:{}}]}],['null exercise',{programs:[{exercises:[null]}]}],
+  ['invalid sets',{workouts:[{exercises:[{sets:{}}]}]}],['null set',{workouts:[{exercises:[{sets:[null]}]}]}],
+  ['bad number',{workouts:[{exercises:[{sets:[{weight:'bad'}]}]}]}],
+  ['duplicate ids',{workouts:[{id:'same'},{id:'same'}]}],['null measurement',{measurements:[null]}],['null schedule',{schedule:[null]}]
+ ]) {await rejects(()=>importBackup({...current,...patch}),label);check(JSON.stringify(await exportBackup().then(({exportedAt,...x})=>x))===JSON.stringify((({exportedAt,...x})=>x)(current)),label+' preserves all data')}
+ const old={...before,version:3,workouts:[]};delete old.strengthSettings;const stale=await loadStrengthSettings();await importBackup(old);check((await loadStrengthSettings()).data.manual[0].weight===51,'old archive preserves manual');await rejects(()=>writeStrengthSettings(stale,changed),'old restore invalidates stale writer');
+ const staleAfterOld=await loadStrengthSettings();const original=structuredClone(before);original.strengthSettings.manual[0].weight=75;await importBackup(original);check((await exportBackup()).strengthSettings.manual[0].weight===75,'v4 restore');await rejects(()=>writeStrengthSettings(staleAfterOld,changed),'restore invalidates stale writer');
+ document.querySelector('#result').textContent='PASS '+JSON.stringify(checks)
+}catch(e){document.querySelector('#result').textContent='FAIL '+String(e)+' '+JSON.stringify(checks)}
+</script>

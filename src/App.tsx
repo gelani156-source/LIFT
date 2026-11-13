@@ -494,7 +494,7 @@ export default function App() {
   const upload = async (f: File) => {
     try {
       const payload = JSON.parse(await f.text())
-      if (!window.confirm('Импорт заменит все программы и историю. Продолжить?')) return
+      if (!window.confirm(payload.version===4 ? 'Импорт заменит программы, историю и ручные данные силы. Продолжить?' : 'Импорт заменит программы и историю. Ручные данные силы сохранятся: в старом архиве их нет. Продолжить?')) return
       setImporting(true); await importBackup(payload); if(Array.isArray(payload.strengthGoals)){setGoals(payload.strengthGoals.filter((g:StrengthGoal)=>typeof g?.id==='string'&&typeof g.exercise==='string'&&typeof g.target==='number'))}else{setGoals([])} await load(); setSettings(false)
       tell('Данные восстановлены')
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
