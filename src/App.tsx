@@ -686,7 +686,7 @@ export default function App() {
         {detail.exercises.map(r => <div className="card" key={r.id}><strong>{exerciseDisplayName(r.name)}</strong>{r.sets.filter(s => s.done).map((s, i) => <p className="muted small" key={s.id}>{i + 1}. {formatWeight(r,s.weight)} × {s.reps} · 1ПМ ≈ {fmt(estimate1RM(weightInKg(r,s.weight), s.reps))} кг</p>)}</div>)}
         <button className="btn secondary full" onClick={() => editWorkout(detail)}><PenLine size={17}/> Редактировать тренировку</button>
         <button className="btn danger full" onClick={() => void removeW(detail.id)}><Trash2 size={17}/> Удалить запись</button>
-      </section> : tab === 'character' ? <CharacterScreen achievements={achievements} onBack={()=>switchTab('train')} onSettings={()=>setSettings(true)}/> : tab === 'train' ? <section>
+      </section> : tab === 'character' ? <CharacterScreen achievements={achievements} workouts={workouts} measurements={measurements} onBack={()=>switchTab('train')} onSettings={()=>setSettings(true)}/> : tab === 'train' ? <section>
         <div className="page-heading"><div><p className="eyebrow">ВАШИ ТРЕНИРОВКИ</p><h1>Мои программы</h1></div><button className="btn primary compact" onClick={() => beginProgram()}><Plus size={17}/> Создать</button></div>
         <CharacterCard achievements={achievements} onOpen={()=>switchTab('character')}/>
         {draft&&<button className="btn primary full" onClick={restoreDraft}>Продолжить незавершённую тренировку</button>}
