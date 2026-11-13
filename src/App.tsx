@@ -8,8 +8,9 @@ import ExerciseCard from './ExerciseCard'
 import MuscleMap from './AnatomyMuscleMap'
 import AnatomyExplorer from './AnatomyExplorer'
 import {store} from './storage'
-import {exerciseMuscleLoad} from './MuscleMap'
-import {groups, suggestions, serializeProgram, readProgramFile, getExerciseAlternative, weeklyMuscleSets, bodyPartPrompt} from './smart'
+import {exerciseMuscleLoad, labels} from './MuscleMap'
+import {anatomyPeriods} from './anatomyPeriods'
+import {groups, suggestions, serializeProgram, readProgramFile, getExerciseAlternative, bodyPartPrompt} from './smart'
 import {buildCatalogIndex, filterCatalogIndex, catalogLabel, catalogKey, addCatalogAlias} from './catalog'
 import {CATALOG_STORAGE_KEY, readCatalogPreferences, updateCatalogPreferences, type CatalogPreferences} from './catalogStorage'
 
@@ -576,7 +577,7 @@ export default function App() {
           <label className="field-label"><input type="checkbox" checked={achievementsEnabled} onChange={e=>toggleAchievements(e.target.checked)}/> Показывать достижения и уровни</label>
           <p className="muted small">Необязательно. Отдых важен; уровни не оценивают здоровье и не требуют тренироваться чаще или увеличивать вес.</p>
           {achievements && <>
-            <p><strong>Уровень {achievements.level} из 5</strong> · зачтено дней: {achievements.days}</p>
+            <p><strong>Достижения за всю историю: {achievements.level} из 5</strong> · зачтено дней: {achievements.days}. Текущая активность за 28 дней показана у персонажа отдельно.</p>
             <ul>{achievements.badges.map(b=><li key={b.target}>{b.earned?'Получено':'Пока не получено'}: {b.target} {b.target===1?'день':'дней'} с тренировкой</li>)}</ul>
             <p className="muted small">Правила: за календарный день в местном часовом поясе — не более одного зачёта. В сохранённой тренировке нужен именованный элемент и выполненный неразминочный подход с конечным весом ≥ 0 и положительными повторениями. Будущие и некорректные даты, пустые записи и конфликтующие ID исключаются. Повторные записи в один день не добавляют зачёт. Вес и тоннаж не влияют на уровень.</p>
             <p className="muted small">Это пересчёт текущей истории, а не награды навсегда: исправление, удаление или смена часового пояса может изменить результат. Копии с разными ID и датами автоматически не распознать. Никакие тренировки не изменяются; настройка остаётся только в этом браузере и не входит в архив.</p>
@@ -688,11 +689,11 @@ export default function App() {
         <button className="btn danger full" onClick={() => void removeW(detail.id)}><Trash2 size={17}/> Удалить запись</button>
       </section> : tab === 'character' ? <CharacterScreen achievements={achievements} workouts={workouts} measurements={measurements} onBack={()=>switchTab('train')} onSettings={()=>setSettings(true)}/> : tab === 'train' ? <section>
         <div className="page-heading"><div><p className="eyebrow">ВАШИ ТРЕНИРОВКИ</p><h1>Мои программы</h1></div><button className="btn primary compact" onClick={() => beginProgram()}><Plus size={17}/> Создать</button></div>
-        <CharacterCard achievements={achievements} onOpen={()=>switchTab('character')}/>
+        <CharacterCard achievements={achievements} workouts={workouts} onOpen={()=>switchTab('character')}/>
         {draft&&<button className="btn primary full" onClick={restoreDraft}>Продолжить незавершённую тренировку</button>}
         <button className="btn secondary full" onClick={() => setShowTemplates(v=>!v)}><Dumbbell size={17}/> Готовые системы тренировок</button>
         {backupAt&&<p className="osfit-helper">Последняя резервная копия: {new Date(backupAt).toLocaleDateString('ru-RU')}</p>}
-        {workouts.length>0&&<details className="osfit-section"><summary>Рабочий объём по группам за 7 дней</summary>{groups.filter(g=>g!=='Все').map(g=><p key={g} className="osfit-goal">{g}: {weeklyMuscleSets(workouts,g)} подходов</p>)}</details>}
+        {workouts.length>0&&<details className="osfit-section"><summary>Условная нагрузка по мышцам за 7 дней</summary>{Object.entries(anatomyPeriods(workouts,7).currentLoad).map(([key,value])=><p key={key} className="osfit-goal">{labels[key as keyof typeof labels]}: {value.toLocaleString('ru-RU',{maximumFractionDigits:2})} усл. подходов</p>)}<p className="muted small">Последние 7 × 24 часа; выполненные рабочие и дроп-подходы без разминки. Основная мышца — 1, вспомогательная — 0,25–0,75. Это условная оценка, не измерение активности или роста мышц; неизвестные упражнения могут не учитываться.</p></details>}
         {showTemplates&&<div className="osfit-template-list">{PLAN_TEMPLATES.map((t,i)=><button key={t.title} onClick={()=>void createTemplate(i)}><strong>{t.title}</strong><small>{t.desc} · создаст {t.days.length} программы</small></button>)}</div>}
         <button className="btn secondary full" onClick={()=>portableRef.current?.click()}><Upload size={17}/> Продолжить тренировку из файла</button>
         <input ref={portableRef} hidden type="file" accept=".txt,.json,.csv,.xlsx" onChange={e=>{const f=e.target.files?.[0];if(f)void importPortable(f);e.target.value=''}}/>

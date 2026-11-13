@@ -3,7 +3,10 @@ import {groupFor, suggestions} from './smart'
 
 // Aliases only affect discovery; they never merge historical names or change units.
 const aliases:Record<string,string[]> = {
-  'жим штанги лежа':['жим лёжа','bench press'],
+  'жим штанги лежа':['жим','жим лёжа','bench press'],
+  'гиперэкстензия':['гипер'],
+  'разгибания ног в тренажере':['разгибания'],
+  'разгибание рук в кроссовере на трицепс с канатом':['косичка'],
   'присед со штангой':['приседания','squat'],
   'становая тяга':['становая','deadlift'],
   'подтягивания':['pull up','pull-up'],
