@@ -52,3 +52,9 @@
 .character-screen-card .strength-actions .btn{min-height:44px}
 @media(max-width:350px){.character-screen-card{padding:12px}.character-screen-card .strength-lift{padding:10px 12px}}
 .character-screen-card p[role="status"]:empty{margin:0}
+
+/* Силовая карточка: игровая шкала, без изменения цветов темы. */
+.character-screen-card .strength-overall{background:linear-gradient(135deg,var(--ios-secondary,#1c252d),var(--ios-bg,#111820));border-color:var(--ios-accent,#96e7b3);box-shadow:0 6px 22px rgba(0,0,0,.12)}
+.character-screen-card .strength-overall strong{color:var(--ios-accent,#96e7b3);font-size:22px}
+.character-screen-card .strength-grid{gap:10px}
+.character-screen-card .strength-lift{border-left:3px solid var(--ios-accent,#96e7b3)}

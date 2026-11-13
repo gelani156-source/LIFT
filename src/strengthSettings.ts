@@ -11,8 +11,8 @@ const validKeys = (x:object, keys:string[]) => Object.keys(x).sort().join('|') =
 export function validStrengthSettings(v:unknown):v is StrengthSettings {
   if (!v || typeof v !== 'object' || !validKeys(v, ['version','aliases','manual'])) return false
   const x = v as StrengthSettings
-  if (x.version !== 1 || !Array.isArray(x.aliases) || x.aliases.length !== 3 || !Array.isArray(x.manual) || x.manual.length !== 3) return false
-  const seen = new Set(STRENGTH_LIFTS.map(l=>norm(l.name)))
+  if (x.version !== 1 || !Array.isArray(x.aliases) || ![3, STRENGTH_LIFTS.length].includes(x.aliases.length) || !Array.isArray(x.manual) || x.manual.length !== x.aliases.length) return false
+  const seen = new Set(STRENGTH_LIFTS.slice(0,3).map(l=>norm(l.name)))
   for (const list of x.aliases) {
     if (!Array.isArray(list) || list.length > 100) return false
     for (const name of list) {

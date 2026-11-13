@@ -19,7 +19,7 @@ test('оба режима показывают одни уровни силы с
   for (const [mode,title] of [[false,'Мышь'],[true,'Новичок']]) {
     const {CharacterScreen} = loadCharacter(mode)
     const html = renderToStaticMarkup(React.createElement(CharacterScreen, props))
-    assert.equal((html.match(new RegExp(title + ' · 1 из 5','g')) || []).length, 4)
+    assert.equal((html.match(new RegExp(title + ' · 1 из 10','g')) || []).length, 4)
     for (const text of ['Общий уровень','Жим штанги лёжа','Присед со штангой','Становая тяга','вымышлены','не оценка подготовки','не реальные нормативы','Регулярность и достижения','Настройки достижений','Получено:']) assert.ok(html.includes(text), text)
     assert.ok(html.includes(`aria-checked="${mode}"`))
   }
@@ -28,7 +28,7 @@ test('отсутствующие данные не получают титул; 
   for (const mode of [false,true]) {
     const {CharacterScreen} = loadCharacter(mode)
     const html = renderToStaticMarkup(React.createElement(CharacterScreen, {...props,workouts:[],measurements:[],achievements:null}))
-    assert.equal((html.match(/Недостаточно данных/g) || []).length,4)
+    assert.equal((html.match(/Недостаточно данных/g) || []).length,7)
     assert.ok(html.includes('Настройки достижений')); assert.ok(html.includes('Достижения регулярности выключены'))
   }
 })
