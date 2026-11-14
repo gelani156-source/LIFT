@@ -60,5 +60,9 @@
 .character-screen-card .strength-lift{border-left:3px solid var(--ios-accent,#96e7b3)}
 
 /* Персонаж отражает общий игровой уровень, а не оценку здоровья. */
-.strength-character{display:grid;place-items:center;align-self:center;width:112px;height:112px;margin:2px auto 8px;border-radius:50%;background:var(--ios-bg,#111820);border:1px solid var(--ios-line,#34404b)}
-.strength-character-art{width:94px;height:94px}.strength-character-emoji{font-size:68px!important;line-height:1;color:inherit!important}.strength-character-empty span{font-size:52px!important;color:var(--ios-muted,#aab5bd)!important}
+/* Большая сцена занимает ширину карточки; рисунок не обрезается рамкой. */
+.strength-character{display:grid;place-items:center;align-self:center;width:100%;max-width:380px;aspect-ratio:1;margin:0 auto 12px;border-radius:20px;background:radial-gradient(ellipse at center,var(--ios-secondary,#1c252d),var(--ios-bg,#111820));container-type:inline-size}
+.strength-character-art{display:block;width:100%;height:100%;padding:5%;overflow:visible}
+.strength-character-emoji{display:block;font-size:clamp(80px,55vw,270px)!important;font-size:72cqw!important;line-height:1.2;color:inherit!important}
+.strength-character-empty{max-width:180px;aspect-ratio:2;margin-bottom:8px}
+.strength-character-empty span{font-size:52px!important;line-height:1.2;color:var(--ios-muted,#aab5bd)!important}
