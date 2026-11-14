@@ -16,7 +16,7 @@ const today = new Date(), day = [today.getFullYear(), String(today.getMonth()+1)
 const workouts = ['Жим штанги лёжа','Присед со штангой','Становая тяга'].map((name,i) => ({id:String(i), date:day, exercises:[{id:'e',name,weightUnit:'kg',sets:[{id:'s',weight:10,reps:1,done:true}]}]}))
 const props = {workouts, measurements:[{id:'m',date:day,weight:100}], achievements:{level:1,days:1,badges:[{target:1,earned:true}]}, onBack:()=>{},onSettings:()=>{}}
 test('оба режима показывают одни уровни силы с разными титулами и достижения', () => {
-  for (const [mode,title] of [[false,'Мышь'],[true,'Новичок']]) {
+  for (const [mode,title] of [[false,'Сурикат'],[true,'Новичок']]) {
     const {CharacterScreen} = loadCharacter(mode)
     const html = renderToStaticMarkup(React.createElement(CharacterScreen, props))
     assert.equal((html.match(new RegExp(title + ' · 1 из 10','g')) || []).length, 4)
@@ -33,24 +33,25 @@ test('отсутствующие данные не получают титул; 
   }
 })
 
-test('персонаж соответствует каждому уровню и не подменяет неизвестный уровень', () => {
+test('изображения и названия всех уровней соответствуют исходному порядку', () => {
   const {StrengthCharacter, STRENGTH_TITLES} = loadCharacter(false)
-  const animals = ['🐭','🐿️','🦊',null,'🐺',null,'🐻','🐯','🐘','🐉']
+  assert.deepEqual([...STRENGTH_TITLES.animal], ['Сурикат','Лиса','Барсук','Волк','Рысь','Кабан','Горилла','Лев','Медведь','Тигр'])
   for (const mode of ['animal','classic']) for (let level=1; level<=10; level++) {
     const html = renderToStaticMarkup(React.createElement(StrengthCharacter,{level,mode}))
+    const src = `./strength-art/${mode}/${String(level).padStart(2,'0')}.webp`
     assert.ok(html.includes(`${STRENGTH_TITLES[mode][level-1]}, игровой уровень ${level} из 10`))
-    if (mode === 'animal' && animals[level-1]) assert.ok(html.includes(animals[level-1]))
-    if (mode === 'animal' && (level === 4 || level === 6)) assert.ok(html.includes('<svg'))
-    if (mode === 'classic') assert.ok(html.includes(`>${level}</text>`))
+    assert.ok(html.includes(`src="${src}"`), src)
+    const image = fs.readFileSync(path.join(__dirname, '../public', src))
+    assert.equal(image.toString('ascii',0,4),'RIFF'); assert.equal(image.toString('ascii',8,12),'WEBP')
   }
-  for (const mode of ['animal','classic']) for (const level of [null,0,11]) {
+  for (const mode of ['animal','classic']) for (const level of [null,0,11,1.5,NaN]) {
     const html = renderToStaticMarkup(React.createElement(StrengthCharacter,{level,mode}))
-    assert.ok(html.includes('Персонаж появится')); assert.ok(!html.includes('role="img"'))
+    assert.ok(html.includes('Персонаж появится')); assert.ok(!html.includes('role="img"')); assert.ok(!html.includes('<img'))
   }
 })
 
 test('экран показывает персонажа по общему уровню, а не по отдельному упражнению', () => {
-  for (const [mode, label] of [[false,'Животное: Мышь'],[true,'Герой: Новичок']]) {
+  for (const [mode, label] of [[false,'Животное: Сурикат'],[true,'Герой: Новичок']]) {
     const {CharacterScreen} = loadCharacter(mode)
     const html = renderToStaticMarkup(React.createElement(CharacterScreen, props))
     assert.ok(html.includes(label)); assert.equal((html.match(/role="img"/g) || []).length,1)

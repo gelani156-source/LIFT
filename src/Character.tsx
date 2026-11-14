@@ -20,8 +20,7 @@ function ActivityDetails({workouts}: {workouts: Workout[]}) {
 export function CharacterCard({achievements, workouts, onOpen}: {achievements: Achievements | null, workouts: Workout[], onOpen: () => void}) {
   return <div className="card character-card"><h2>Персонаж</h2>{achievements ? <ActivityDetails workouts={workouts}/> : <p className="muted small">Достижения выключены</p>}<button type="button" className="btn secondary" onClick={onOpen}>Открыть персонажа</button></div>
 }
-export const STRENGTH_TITLES = {animal: ['Мышь', 'Белка', 'Лиса', 'Рысь', 'Волк', 'Пантера', 'Медведь', 'Тигр', 'Слон', 'Дракон'], classic: ['Новичок', 'Ученик', 'Практик', 'Атлет', 'Опытный', 'Сильный', 'Мастер', 'Эксперт', 'Чемпион', 'Легенда']} as const
-const ANIMAL_PICTURES = ['🐭', '🐿️', '🦊', null, '🐺', null, '🐻', '🐯', '🐘', '🐉'] as const
+export const STRENGTH_TITLES = {animal: ['Сурикат', 'Лиса', 'Барсук', 'Волк', 'Рысь', 'Кабан', 'Горилла', 'Лев', 'Медведь', 'Тигр'], classic: ['Новичок', 'Ученик', 'Практик', 'Атлет', 'Опытный', 'Сильный', 'Мастер', 'Эксперт', 'Чемпион', 'Легенда']} as const
 
 /** Только визуальное представление уже рассчитанного общего уровня силы. */
 export function StrengthCharacter({level, mode}: {level: number | null, mode: keyof typeof STRENGTH_TITLES}) {
@@ -29,16 +28,7 @@ export function StrengthCharacter({level, mode}: {level: number | null, mode: ke
   if (!valid) return <div className="strength-character strength-character-empty" aria-label="Персонаж появится, когда будет определён общий уровень силы"><span aria-hidden="true">?</span></div>
   const rank = level as number
   return <div className="strength-character" role="img" aria-label={`${mode === 'animal' ? 'Животное' : 'Герой'}: ${STRENGTH_TITLES[mode][rank - 1]}, игровой уровень ${rank} из 10`}>
-    {mode === 'animal' ? (rank === 4 ? <svg aria-hidden="true" viewBox="0 0 100 100" className="strength-character-art"><path fill="#b77d4e" d="M13 44 15 13 34 30Q50 24 66 30L85 13 87 44Q91 57 84 72 73 88 50 90 27 88 16 72 9 57 13 44Z"/><path fill="#50382b" d="M15 13 11 3 25 23M85 13 89 3 75 23"/><path fill="#ead7b8" d="M20 58Q31 68 50 62 69 68 80 58 77 82 50 85 23 82 20 58Z"/><path stroke="#50382b" strokeWidth="4" strokeLinecap="round" d="M29 49h7M64 49h7M46 68h8"/></svg> : rank === 6 ? <svg aria-hidden="true" viewBox="0 0 100 100" className="strength-character-art"><path fill="#252c39" d="M13 41 14 17 34 28Q50 22 66 28L86 17 87 41Q93 58 82 73 70 88 50 89 30 88 18 73 7 58 13 41Z"/><path fill="#82977a" d="M23 49Q31 42 40 49 32 55 23 49M60 49Q69 42 77 49 68 55 60 49Z"/><path fill="#75818d" d="M27 68Q38 60 50 68 62 60 73 68 68 81 50 82 32 81 27 68Z"/><path fill="#202631" d="M43 66 57 66 50 72Z"/></svg> : <span className="strength-character-emoji" aria-hidden="true">{ANIMAL_PICTURES[rank - 1]}</span>) : <svg aria-hidden="true" viewBox="0 0 100 100" className="strength-character-art">
-      {rank >= 7 && <path d="M32 38 13 79 50 92 87 79 68 38Z" fill="#8356af"/>}
-      <path d="M30 77 34 51Q50 40 66 51L70 77 63 89H37Z" fill={rank >= 5 ? '#4d80a7' : '#718a78'}/>
-      <circle cx="50" cy="32" r="17" fill="#e9bb91"/>
-      <path d="M33 32Q32 12 50 14 68 12 67 32 60 23 50 24 40 23 33 32Z" fill="#384353"/>
-      {rank >= 3 && <path d="M34 50 23 59 29 68 39 59M66 50 77 59 71 68 61 59" fill="#b8c6d1"/>}
-      {rank >= 5 && <path d="M42 61 50 55 58 61 55 72 50 76 45 72Z" fill="#efc45e"/>}
-      {rank >= 8 && <path d="M35 19 38 8 45 15 50 6 55 15 62 8 65 19Z" fill="#efc45e"/>}
-      <text x="50" y="87" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#fff">{rank}</text>
-    </svg>}
+    <img className="strength-character-art" src={`./strength-art/${mode}/${String(rank).padStart(2, '0')}.webp`} alt="" width={mode === 'animal' ? 245 : 349} height={mode === 'animal' ? 621 : 438} />
   </div>
 }
 export function strengthTitle(level: number | null, mode: keyof typeof STRENGTH_TITLES): string {
