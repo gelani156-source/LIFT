@@ -59,3 +59,28 @@ test('экран показывает персонажа по общему ур�
     assert.ok(empty.includes('Персонаж появится')); assert.ok(!empty.includes('role="img"'))
   }
 })
+
+test('подписи всех уровней общие для режимов и находятся под общим титулом', () => {
+  const captions = [
+    'Начало игрового пути. Каждый уровень — часть истории персонажа.',
+    'Ты входишь в ритм. Регулярность и терпение помогут двигаться дальше.',
+    'Уже есть на что опереться. Продолжай укреплять свою базу.',
+    'Ты набираешь уверенность. Прогресс складывается из тренировок, отдыха и времени.',
+    'Хорошая база позади — интересное впереди. Продолжай в своём темпе.',
+    'Твоя работа приносит плоды. Не забывай: восстановление тоже часть прогресса.',
+    'Ты прошёл большой путь. Цени достигнутое и двигайся дальше с умом.',
+    'Восьмой игровой уровень. Впереди ещё есть куда расти.',
+    'Девятый игровой уровень — до вершины игрового пути остался один шаг.',
+    'Вершина игрового пути! Продолжай тренироваться в удовольствие и береги достигнутое.',
+  ]
+  for (const mode of [false,true]) {
+    const {CharacterScreen, strengthCaption} = loadCharacter(mode)
+    captions.forEach((caption, i) => assert.equal(strengthCaption(i + 1), caption))
+    for (const level of [null,0,11,1.5,NaN]) assert.equal(strengthCaption(level), 'Игровой уровень пока не определён.')
+    const html = renderToStaticMarkup(React.createElement(CharacterScreen, props))
+    assert.ok(html.includes(` · 1 из 10</strong><p class="strength-caption">${captions[0]}</p><small>`))
+    assert.equal(html.split('class="strength-caption"').length - 1, 1)
+    const empty = renderToStaticMarkup(React.createElement(CharacterScreen, {...props,workouts:[],measurements:[]}))
+    assert.ok(empty.includes('Недостаточно данных</strong><p class="strength-caption">Игровой уровень пока не определён.</p>'))
+  }
+})

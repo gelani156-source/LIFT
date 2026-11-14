@@ -22,6 +22,24 @@ export function CharacterCard({achievements, workouts, onOpen}: {achievements: A
 }
 export const STRENGTH_TITLES = {animal: ['Сурикат', 'Лиса', 'Барсук', 'Волк', 'Рысь', 'Кабан', 'Горилла', 'Лев', 'Медведь', 'Тигр'], classic: ['Новичок', 'Ученик', 'Практик', 'Атлет', 'Опытный', 'Сильный', 'Мастер', 'Эксперт', 'Чемпион', 'Легенда']} as const
 
+const STRENGTH_CAPTIONS = [
+  'Начало игрового пути. Каждый уровень — часть истории персонажа.',
+  'Ты входишь в ритм. Регулярность и терпение помогут двигаться дальше.',
+  'Уже есть на что опереться. Продолжай укреплять свою базу.',
+  'Ты набираешь уверенность. Прогресс складывается из тренировок, отдыха и времени.',
+  'Хорошая база позади — интересное впереди. Продолжай в своём темпе.',
+  'Твоя работа приносит плоды. Не забывай: восстановление тоже часть прогресса.',
+  'Ты прошёл большой путь. Цени достигнутое и двигайся дальше с умом.',
+  'Восьмой игровой уровень. Впереди ещё есть куда расти.',
+  'Девятый игровой уровень — до вершины игрового пути остался один шаг.',
+  'Вершина игрового пути! Продолжай тренироваться в удовольствие и береги достигнутое.',
+] as const
+export function strengthCaption(level: number | null): string {
+  return level !== null && Number.isInteger(level) && level >= 1 && level <= 10
+    ? STRENGTH_CAPTIONS[level - 1]
+    : 'Игровой уровень пока не определён.'
+}
+
 /** Только визуальное представление уже рассчитанного общего уровня силы. */
 export function StrengthCharacter({level, mode}: {level: number | null, mode: keyof typeof STRENGTH_TITLES}) {
   const valid = level !== null && Number.isInteger(level) && level >= 1 && level <= 10
@@ -75,7 +93,7 @@ function StrengthView({workouts, measurements, mode}: {workouts: Workout[], meas
     <p className="muted small">Названия и пороги вымышлены: это игра, а не оценка подготовки и не реальные нормативы. Не сравнивайте людей и не повышайте нагрузку ради уровня.</p></div>
     {error && <p role="alert">{error} Расчёт показан только по истории; проверьте хранилище и сохраните копию до восстановления.</p>}
     <p className="muted small" role="status">{notice}</p>
-    <div className="strength-overall"><StrengthCharacter level={result.overall} mode={mode}/><span>Общий уровень силы · игровой</span><strong>{strengthTitle(result.overall, mode)}</strong><small>Учтено упражнений: {result.coverage} из {result.lifts.length}. {result.overall===null ? 'Нужны актуальный вес тела и уровни хотя бы трёх упражнений.' : 'Среднее доступных уровней; состав упражнений влияет на результат.'}</small></div>
+    <div className="strength-overall"><StrengthCharacter level={result.overall} mode={mode}/><span>Общий уровень силы · игровой</span><strong>{strengthTitle(result.overall, mode)}</strong><p className="strength-caption">{strengthCaption(result.overall)}</p><small>Учтено упражнений: {result.coverage} из {result.lifts.length}. {result.overall===null ? 'Нужны актуальный вес тела и уровни хотя бы трёх упражнений.' : 'Среднее доступных уровней; состав упражнений влияет на результат.'}</small></div>
     <p className="muted small">{result.body ? `Вес тела: ${result.body.weight} кг · ${result.body.date}` : 'Нет подходящего замера веса тела за последние 90 дней. Добавьте его в разделе замеров.'}</p>
     <div className="strength-grid">{result.lifts.map((l,index) => <article className="strength-lift" key={l.name}><div className="strength-lift-head"><strong>{l.name}</strong><span>{strengthTitle(l.level, mode)}</span></div><p className="muted small">{l.set ? `${l.set.weight} кг × ${l.set.reps} · ${l.set.day} · ${l.set.source==='manual'?'ручной ввод':'тренировка'} · расчётный 1ПМ ${l.set.estimate.toFixed(1)} кг` : 'Нет подходящего подхода за последние 90 дней: проверьте название, дату, килограммы и выполненные рабочие подходы 1–12 повторов или введите данные вручную.'}{!result.body && l.set ? ' Нет актуального веса тела для уровня.' : ''}</p><LiftEditor key={snapshot ? 'loaded' : 'loading'} index={index} settings={snapshot?.data ?? emptyStrengthSettings()} disabled={busy || !!error || !snapshot} onSave={save}/></article>)}</div>
     <details className="strength-explanation"><summary>Как рассчитывается игровой уровень</summary><p className="muted small">Уровни не оценивают здоровье или технику. Берётся последний день с выполненным рабочим подходом 1–12 повторов в кг или ручным подходом и лучший расчётный 1ПМ этого дня: вес × (1 + повторы/30), для одного повтора — вес. Используется последний замер массы за 90 календарных дней, не обязательно на дату подхода. Оба результата должны быть не старше 90 дней; будущие записи исключены. Разминка, блоки и другие упражнения не учитываются.</p><p className="muted small">Уровень = 1 плюс число достигнутых вымышленных порогов отношения 1ПМ к текущему весу тела. Пороги отношения (уровни 2–10): {STRENGTH_LIFTS.map(l=>`${l.name}: ${l.thresholds.join(' / ')}`).join('; ')}. Общий уровень — среднее доступных уровней упражнений, округлённое вниз; необходимы хотя бы три. Каждый уровень имеет одинаковый вес, поэтому при изменении состава упражнений сравнение со старым результатом условно. Не смешиваются веса разных упражнений: сначала для каждого применяются собственные пороги. Гантели, подтягивания с весом тела и тренажёры сюда не приравниваются; привязки допустимы только для того же движения и единицы измерения. Данные и оценки могут меняться при исправлении истории. Настройки и ручные данные хранятся локально отдельно от тренировок.</p></details>

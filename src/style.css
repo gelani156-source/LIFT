@@ -39,6 +39,7 @@
 .character-screen-card .strength-overall span{color:var(--ios-muted);font-size:12px}
 .character-screen-card .strength-overall strong{font-size:19px;line-height:1.2;overflow-wrap:anywhere}
 .character-screen-card .strength-overall small{line-height:1.4}
+.character-screen-card .strength-overall .strength-caption{margin:0;font-size:14px;line-height:1.45;overflow-wrap:anywhere}
 .character-screen-card .strength-grid{grid-template-columns:1fr;gap:8px;margin-top:10px}
 .character-screen-card .strength-lift{padding:12px 14px;border-radius:13px}
 .character-screen-card .strength-lift-head{flex-direction:row;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 10px;font-size:13px}
